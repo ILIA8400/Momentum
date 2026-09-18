@@ -94,6 +94,19 @@ route('GET', '/api/import/template.xlsx', (req, p, url, res) => {
   send(res, 200, importer.buildTemplate(db.listSubjects()), { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="momentum-template.xlsx"' });
   return null;
 });
+route('GET', '/api/import/sample.xlsx', (req, p, url, res) => {
+  const subs = db.listSubjects().filter((x) => !x.archived).map((x) => x.name);
+  const t = J.todayJalali().replace(/-/g, '/');
+  const y = J.addDays(J.todayJalali(), -1).replace(/-/g, '/');
+  const sample = [
+    [y, subs[0] || 'گسسته', '08:00', '09:40', '', '70', '', '30', '60', '42', '9', 'تست فصل ۳ — مدت از ساعت شروع/پایان حساب می‌شود', 'بله'],
+    [y, subs[1] || 'مدار', '', '', '3:00', '', '', '', '', '', '', 'فیلم جلسه ۱۲ — فقط مدت کل', 'بله'],
+    [t, subs[2] || 'هوش', '', '', '', '90', '30', '', '', '', '', 'خواندن ۹۰ + مرور ۳۰ = مدت کل ۱۲۰', 'خیر'],
+    [t, subs[3] || 'زبان', '', '', '45', '', '', '', '20', '14', '2', 'تست‌های فصل ۲ — ۲۰ تست، ۱۴ درست، ۲ غلط', 'بله'],
+  ];
+  send(res, 200, importer.buildTemplate(db.listSubjects(), sample), { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="momentum-sample.xlsx"' });
+  return null;
+});
 route('POST', '/api/import/analyze', async (req) => {
   const b = await readBody(req); // { name, data: base64 }
   if (!b.data) throw new Error('فایلی ارسال نشد');

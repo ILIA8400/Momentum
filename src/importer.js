@@ -40,11 +40,12 @@ const toEn = (s) => String(s ?? '').replace(/[۰-۹]/g, (d) => FA.indexOf(d)).re
 const norm = (s) => toEn(s).replace(/[‌​\s_\-()]/g, '').replace(/ي/g, 'ی').replace(/ك/g, 'ک').replace(/[ةه]$/, 'ه').toLowerCase();
 const normName = (s) => String(s ?? '').replace(/[‌​]/g, '').replace(/\s+/g, ' ').replace(/ي/g, 'ی').replace(/ك/g, 'ک').trim().toLowerCase();
 
-function buildTemplate(subjects) {
+function buildTemplate(subjects, prefill = []) {
   const active = subjects.filter((s) => !s.archived).map((s) => s.name);
   const header = COLUMNS.map((c) => ({ v: c.title, bold: true }));
   const data = { name: 'برنامه', rtl: true, freeze: true, cols: COLUMNS.map((c) => c.width), rows: [header] };
   // ۳۰۰ ردیف خالی با استایل متن برای ستون تاریخ و ساعت‌ها (تا اکسل تبدیلشان نکند)
+  for (const r of prefill) data.rows.push(r.map((v) => (v === '' || v == null ? null : { v: String(v), text: true })));
   for (let i = 0; i < 300; i++) data.rows.push([{ v: '', text: true }]);
   data.validations = [
     { sqref: 'B2:B1000', formula: `'راهنما'!$D$3:$D$${2 + Math.max(1, active.length)}`, error: 'نام درس باید دقیقاً یکی از درس‌های اپ باشد (لیست را در شیت راهنما ببین)' },

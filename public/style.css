@@ -464,3 +464,9 @@ a.theme-btn { text-decoration: none; }
 .imp-table .wrn { color: var(--warn); }
 .imp-table .okm { color: var(--ok); }
 .imp-table input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--ok); }
+
+.cols-guide td { white-space: normal; vertical-align: top; line-height: 1.7; }
+.cols-guide td.req { color: var(--danger); font-weight: 700; white-space: nowrap; }
+.cols-guide td.ex { direction: ltr; text-align: right; font-family: Consolas, monospace; font-size: 12.5px; color: var(--ok); }
+.cols-guide td.no { color: var(--danger); font-size: 12.5px; }
+.cols-guide td:first-child { white-space: nowrap; }

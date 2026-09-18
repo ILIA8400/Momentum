@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Momentum — All Plan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink: #111827; --ink-2: #4b5563; --muted: #9ca3af; --line: #dbe3ee; --head: #dbeafe; --head-2: #bfdbfe; --blue: #1d4ed8; --blue-soft: #eff6ff; --purple: #5b4fcf; --purple-soft: #ede9fe; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eef1f6; color: var(--ink); font-family: Vazirmatn, "Segoe UI", Tahoma, sans-serif; font-size: 11.5px; line-height: 1.5; }
+    .toolbar { position: sticky; top: 0; background: #111827; color: #fff; padding: 10px 20px; display: flex; gap: 10px; align-items: center; z-index: 5; flex-wrap: wrap; }
+    .toolbar button, .toolbar a, .toolbar select { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
+    .toolbar .ghost { background: transparent; border: 1px solid rgba(255,255,255,.3); }
+    .toolbar select { background: #1f2937; }
+    .toolbar .sp { flex: 1; }
+    .toolbar small { opacity: .7; font-size: 12px; }
+    .wrap { padding: 20px; }
+    h1 { text-align: center; font-size: 22px; margin: 4px 0 14px; }
+    .sub { text-align: center; color: var(--ink-2); margin: -10px 0 14px; font-size: 12.5px; }
+    .scroller { overflow: auto; background: #fff; border-radius: 10px; box-shadow: 0 6px 30px rgba(0,0,0,.08); }
+    table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+    th, td { border-bottom: 1px solid var(--line); border-inline-start: 1px solid var(--line); vertical-align: top; }
+    thead th { position: sticky; top: 0; background: var(--head); color: var(--blue); font-weight: 700; padding: 8px 6px; text-align: center; z-index: 2; white-space: nowrap; font-size: 12px; }
+    thead th.wk { position: sticky; right: 0; z-index: 3; }
+    td.wk { position: sticky; right: 0; background: #f8fafc; z-index: 1; text-align: center; font-weight: 700; color: var(--ink-2); padding: 6px; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; }
+    td.wk small { display: block; font-weight: 400; font-size: 10px; color: var(--muted); }
+    td.sum { min-width: 105px; padding: 6px 8px; font-size: 11px; color: var(--ink-2); line-height: 1.7; white-space: nowrap; background: #fbfcfe; }
+    td.sum b { color: var(--ink); font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: embed; }
+    td.cell { min-width: 120px; max-width: 170px; padding: 6px 7px; text-align: center; }
+    td.cell .k { color: var(--blue); font-size: 10px; font-weight: 600; margin-top: 4px; }
+    td.cell .k:first-child { margin-top: 0; }
+    td.cell .n { color: var(--ink); font-size: 11px; line-height: 1.5; }
+    td.cell .dot { color: var(--muted); }
+    tr.stat td { background: var(--blue-soft); border-bottom: 2px solid var(--head-2); padding: 0; }
+    tr.stat td.sum { background: #dbeafe; text-align: center; font-weight: 800; font-size: 13px; color: var(--blue); padding: 8px; vertical-align: middle; white-space: nowrap; }
+    .mini { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 5px 4px 3px; }
+    .mini span { background: #fff; border-radius: 4px; padding: 2px 0; font-size: 10.5px; direction: ltr; font-variant-numeric: tabular-nums; color: var(--ink-2); text-align: center; }
+    .mini span.t { color: #b45309; }
+    .mini span.t small { font-size: 9px; }
+    .tot { text-align: center; font-weight: 800; color: var(--blue); padding: 3px 0 5px; font-size: 12px; direction: ltr; }
+    .tot.z { color: var(--muted); font-weight: 500; }
+    tfoot td { background: var(--purple-soft); color: var(--purple); border-bottom: 0; }
+    tfoot td.wk { background: var(--purple); color: #fff; }
+    tfoot .mini span { background: #fff; }
+    tfoot .tot { color: var(--purple); }
+    tfoot td.sum { background: #ddd6fe; color: var(--purple); font-weight: 800; font-size: 13px; text-align: center; vertical-align: middle; }
+    .empty { text-align: center; color: var(--muted); padding: 40px; }
+    @page { size: A3 landscape; margin: 8mm; }
+    @media print {
+      body { background: #fff; font-size: 10px; }
+      .toolbar { display: none; }
+      .wrap { padding: 0; }
+      .scroller { overflow: visible; box-shadow: none; }
+      thead th, td.wk { position: static; }
+      table { width: 100%; }
+      tr.stat, tr.content { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="window.print()">🖨️ چاپ / ذخیره PDF</button>
+    <select id="range">
+      <option value="all">همهٔ هفته‌ها (از روز اول)</option>
+      <option value="4">۴ هفتهٔ اخیر</option>
+      <option value="8">۸ هفتهٔ اخیر</option>
+      <option value="12">۱۲ هفتهٔ اخیر</option>
+    </select>
+    <a class="ghost" id="detail" href="#">گزارش تفصیلی این هفته</a>
+    <a class="ghost" href="/">← برگشت به اپ</a>
+    <span class="sp"></span>
+    <small>برای PDF: مقصد «Save as PDF»، کاغذ A3 افقی</small>
+  </div>
+  <div class="wrap">
+    <h1>برنامه هفتگی انجام شده</h1>
+    <div class="sub" id="subtitle"></div>
+    <div class="scroller" id="out">در حال بارگذاری…</div>
+  </div>
+  <script src="/jalali.js"></script>
+  <script>
+  (async () => {
+    const J = Jalali;
+    const FA = '۰۱۲۳۴۵۶۷۸۹';
+    const fa = (n) => String(n).replace(/\d/g, (d) => FA[d]);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const hm = (m) => { m = m | 0; return m ? fa(Math.floor(m / 60)) + ':' + fa(String(m % 60).padStart(2, '0')) : '۰۰'; };
+    const fmtShort = (s) => { const j = J.parse(s); return `${fa(j.jd)} ${J.MONTHS[j.jm - 1]}`; };
+    const ORD = ['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم', 'نهم', 'دهم', 'یازدهم', 'دوازدهم', 'سیزدهم', 'چهاردهم', 'پانزدهم', 'شانزدهم', 'هفدهم', 'هجدهم', 'نوزدهم', 'بیستم'];
+    const ordinal = (i) => ORD[i] || fa(i + 1);
+
+    const q = new URLSearchParams(location.search);
+    const rangeSel = document.getElementById('range');
+    rangeSel.value = q.get('range') || 'all';
+    rangeSel.addEventListener('change', () => { location.search = '?range=' + rangeSel.value; });
+    const today = J.todayJalali();
+    document.getElementById('detail').href = '/report.html?date=' + today;
+
+    const [subjectsAll, rec, settings] = await Promise.all([
+      fetch('/api/subjects').then((r) => r.json()),
+      fetch('/api/records').then((r) => r.json()),
+      fetch('/api/settings').then((r) => r.json()),
+    ]);
+    const out = document.getElementById('out');
+    if (!rec.firstDay) { out.innerHTML = '<div class="empty">هنوز چیزی ثبت نشده</div>'; return; }
+
+    // بازهٔ هفته‌ها
+    const thisWeek = J.weekStart(today);
+    let firstWeek = J.weekStart(rec.firstDay);
+    if (rangeSel.value !== 'all') { const n = +rangeSel.value; const alt = J.addDays(thisWeek, -7 * (n - 1)); if (alt > firstWeek) firstWeek = alt; }
+    const weeks = [];
+    for (let w = firstWeek; w <= thisWeek; w = J.addDays(w, 7)) weeks.push(w);
+    const entries = await fetch(`/api/entries?from=${firstWeek}&to=${J.addDays(thisWeek, 6)}`).then((r) => r.json());
+    const used = new Set(entries.map((e) => e.subject_id));
+    const subjects = subjectsAll.filter((s) => !s.archived || used.has(s.id));
+    document.getElementById('subtitle').textContent = `${settings.user_name ? settings.user_name + ' · ' : ''}از ${fmtShort(firstWeek)} تا ${fmtShort(J.addDays(thisWeek, 6))} · ${fa(weeks.length)} هفته`;
+
+    // تجمیع: week → subject → آمار + یادداشت‌ها
+    const zero = () => ({ minutes: 0, study: 0, review: 0, test: 0, tests: 0, notes: { study: [], review: [], test: [] } });
+    const agg = {}, subTotal = {};
+    for (const s of subjects) subTotal[s.id] = zero();
+    for (const e of entries) {
+      const w = J.weekStart(e.date);
+      const a = ((agg[w] ||= {})[e.subject_id] ||= zero());
+      for (const tgt of [a, subTotal[e.subject_id]]) {
+        if (!tgt) continue;
+        tgt.minutes += e.minutes; tgt.study += e.study_min; tgt.review += e.review_min; tgt.test += e.test_min; tgt.tests += e.tests;
+      }
+      if (e.note) {
+        // یادداشت زیر عنوانی می‌رود که آن آیتم بیشتر ازش داشته؛ بدون جزئیات → خواندن
+        const kind = e.test_min || (e.tests && !e.study_min && !e.review_min) ? 'test' : e.review_min && !e.study_min ? 'review' : 'study';
+        a.notes[kind].push(e.note + (e.done ? '' : ' ○'));
+      }
+    }
+    const weekTotal = (w) => Object.values(agg[w] || {}).reduce((t, a) => { t.minutes += a.minutes; t.study += a.study; t.review += a.review; t.test += a.test; t.tests += a.tests; return t; }, zero());
+
+    const sumCell = (t, label) => `<td class="sum">${label ? `<div style="font-weight:800;color:var(--ink);margin-bottom:2px">${label}</div>` : ''}
+      خواندن : <b>${hm(t.study)}</b><br>مرور : <b>${hm(t.review)}</b><br>تست : <b>${hm(t.test)}</b><br>تعداد تست : <b>${fa(t.tests)}</b><br>تایم هر تست : <b>${t.tests && t.test ? fa(Math.round(t.test / t.tests)) : '۰'}</b> دقیقه</td>`;
+    const miniCell = (a) => `<td><div class="mini"><span title="خواندن">${hm(a.study)}</span><span title="مرور">${hm(a.review)}</span><span class="t" title="تست">${hm(a.test)}${a.tests ? `<br><small>${fa(a.tests)} ت</small>` : ''}</span></div><div class="tot ${a.minutes ? '' : 'z'}">${hm(a.minutes)}</div></td>`;
+    const noteCell = (a) => {
+      if (!a || !(a.notes.study.length || a.notes.review.length || a.notes.test.length)) return '<td class="cell"><span class="dot">·</span></td>';
+      const part = (k, label) => a.notes[k].length ? `<div class="k">${label}</div><div class="n">${a.notes[k].map(esc).join('<br>')}</div>` : '';
+      return `<td class="cell">${part('study', 'خواندن')}${part('review', 'مرور')}${part('test', 'تست')}</td>`;
+    };
+
+    let html = `<table><thead><tr><th class="wk"></th><th>جمع ساعات</th>${subjects.map((s) => `<th>${esc(s.name)}</th>`).join('')}</tr></thead><tbody>`;
+    weeks.forEach((w, i) => {
+      const t = weekTotal(w);
+      html += `<tr class="content"><td class="wk" rowspan="2">هفته ${ordinal(i)}<small>${fmtShort(w)} – ${fmtShort(J.addDays(w, 6))}</small></td>${sumCell(t)}${subjects.map((s) => noteCell(agg[w]?.[s.id])).join('')}</tr>`;
+      html += `<tr class="stat"><td class="sum">${hm(t.minutes)}</td>${subjects.map((s) => miniCell(agg[w]?.[s.id] || zero())).join('')}</tr>`;
+    });
+    const all = Object.values(subTotal).reduce((t, a) => { t.minutes += a.minutes; t.study += a.study; t.review += a.review; t.test += a.test; t.tests += a.tests; return t; }, zero());
+    html += `</tbody><tfoot>
+      <tr class="content"><td class="wk" rowspan="2">جمع ساعات هر درس</td>${sumCell(all)}${subjects.map((s) => `<td class="cell" style="font-weight:700;padding-top:10px">${esc(s.name)}</td>`).join('')}</tr>
+      <tr class="stat"><td class="sum">${hm(all.minutes)}</td>${subjects.map((s) => miniCell(subTotal[s.id])).join('')}</tr>
+    </tfoot></table>`;
+    out.innerHTML = html;
+    document.title = `All Plan — ${fa(weeks.length)} هفته`;
+  })();
+  </script>
+</body>
+</html>

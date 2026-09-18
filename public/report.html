@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Momentum — All Plan</title>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --ink: #111827; --ink-2: #4b5563; --muted: #9ca3af; --line: #e5e7eb; --soft: #f3f4f6; --primary: #2563eb; --ok: #16a34a; --warn: #d97706; --danger: #dc2626; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e5e7eb; color: var(--ink); font-family: Vazirmatn, "Segoe UI", Tahoma, sans-serif; font-size: 12.5px; line-height: 1.6; }
+    .toolbar { position: sticky; top: 0; background: #111827; color: #fff; padding: 10px 20px; display: flex; gap: 10px; align-items: center; z-index: 5; }
+    .toolbar button, .toolbar a { background: var(--primary); color: #fff; border: 0; border-radius: 8px; padding: 8px 16px; font: inherit; cursor: pointer; text-decoration: none; }
+    .toolbar .ghost { background: transparent; border: 1px solid rgba(255,255,255,.3); }
+    .toolbar .sp { flex: 1; }
+    .toolbar small { opacity: .7; }
+    .page { background: #fff; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 14mm 12mm; box-shadow: 0 10px 40px rgba(0,0,0,.2); }
+    h1 { margin: 0; font-size: 22px; letter-spacing: -.3px; }
+    h2 { margin: 18px 0 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    h2::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+    .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+    .head .meta { text-align: left; color: var(--ink-2); font-size: 12px; }
+    .head .brand { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+    .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+    .kpi { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+    .kpi .l { font-size: 11px; color: var(--ink-2); }
+    .kpi .v { font-size: 18px; font-weight: 800; }
+    .kpi .v small { font-size: 11px; font-weight: 500; color: var(--muted); margin-inline-start: 3px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: right; vertical-align: top; }
+    th { background: var(--soft); font-size: 11px; color: var(--ink-2); font-weight: 600; }
+    td.n, th.n { text-align: center; direction: ltr; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .day { margin-top: 12px; break-inside: avoid; }
+    .day .dh { display: flex; align-items: center; gap: 10px; background: var(--soft); border-radius: 8px; padding: 6px 10px; font-weight: 700; }
+    .day .dh .sum { margin-inline-start: auto; font-weight: 500; color: var(--ink-2); font-size: 12px; display: flex; gap: 12px; }
+    .day .empty { color: var(--muted); padding: 6px 10px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 5px; vertical-align: middle; }
+    .ok { color: var(--ok); font-weight: 700; }
+    .no { color: var(--muted); }
+    .pct { font-weight: 700; }
+    .pct.good { color: var(--ok); } .pct.bad { color: var(--danger); }
+    .note { color: var(--ink-2); }
+    .daynote { margin: 6px 10px 0; padding: 6px 10px; background: #fffbeb; border-inline-start: 3px solid var(--warn); border-radius: 6px; color: #78350f; white-space: pre-wrap; }
+    .subs td .bar { height: 8px; background: var(--soft); border-radius: 4px; overflow: hidden; }
+    .subs td .bar > div { height: 100%; border-radius: 4px; }
+    .goal { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+    .goal .bar { flex: 1; height: 10px; background: var(--soft); border-radius: 5px; overflow: hidden; }
+    .goal .bar > div { height: 100%; background: var(--primary); }
+    .foot { margin-top: 20px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; display: flex; justify-content: space-between; }
+    .ltr { direction: ltr; unicode-bidi: embed; }
+    @page { size: A4; margin: 10mm; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .page { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button onclick="window.print()">🖨️ چاپ / ذخیره PDF</button>
+    <a class="ghost" id="prev" href="#">‹ هفتهٔ قبل</a>
+    <a class="ghost" id="next" href="#">هفتهٔ بعد ›</a>
+    <span class="sp"></span>
+    <small>در پنجرهٔ چاپ، مقصد را «Save as PDF» بگذار</small>
+  </div>
+  <div class="page" id="page">در حال بارگذاری…</div>
+  <script src="/jalali.js"></script>
+  <script src="/report.js"></script>
+</body>
+</html>

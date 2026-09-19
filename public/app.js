@@ -458,13 +458,13 @@
         <div class="fs">
           <div class="lg">${ic('clock')} مدت زمان (دقیقه)</div>
           <div class="grid g3">
-            <label class="field"><span>خواندن</span><input class="input num" type="number" name="study_min" min="0" step="5" placeholder="۰" value="${v('study_min')}"></label>
-            <label class="field"><span>مرور</span><input class="input num" type="number" name="review_min" min="0" step="5" placeholder="۰" value="${v('review_min')}"></label>
-            <label class="field"><span>تست زدن</span><input class="input num" type="number" name="test_min" min="0" step="5" placeholder="۰" value="${v('test_min')}"></label>
+            <label class="field"><span>خواندن</span><input class="input num" type="number" name="study_min" min="0" step="1" placeholder="۰" value="${v('study_min')}"></label>
+            <label class="field"><span>مرور</span><input class="input num" type="number" name="review_min" min="0" step="1" placeholder="۰" value="${v('review_min')}"></label>
+            <label class="field"><span>تست زدن</span><input class="input num" type="number" name="test_min" min="0" step="1" placeholder="۰" value="${v('test_min')}"></label>
           </div>
           <div class="total" style="margin-top:10px">
             <span>مدت کل *</span>
-            <input class="input num" type="number" name="minutes" min="1" step="5" style="width:90px" value="${ed ? ed.minutes : ''}" placeholder="دقیقه">
+            <input class="input num" type="number" name="minutes" min="1" step="1" style="width:90px" value="${ed ? ed.minutes : ''}" placeholder="دقیقه">
             <span id="totalHint" class="muted"></span>
           </div>
           <div class="hint">اگه جزئیات یا بازه رو وارد کنی، مدت کل خودش پر می‌شه. می‌تونی فقط همین یکی رو هم بنویسی.</div>
@@ -648,7 +648,7 @@
     const bar = (done, goal) => goal ? `<div class="progress"><div class="${done >= goal ? 'over' : ''}" style="width:${Math.min(100, (done / goal) * 100)}%"></div></div>` : '';
     return `<div class="card-head"><h2>${ic('target')} هدف ${label}</h2></div>
       <div class="goal-main">
-        <label class="field"><span>هدف کلی (ساعت)</span><input class="input num" type="number" min="0" step="0.5" data-goal="0" value="${overall ? overall / 60 : ''}" placeholder="مثلاً ۳۰"></label>
+        <label class="field"><span>هدف کلی (ساعت)</span><input class="input num" type="number" min="0" step="any" data-goal="0" value="${overall ? overall / 60 : ''}" placeholder="مثلاً ۳۰"></label>
         <div>
           <div class="txt">${overall
             ? `<span><b>${hours(total)}</b> از ${hours(overall)} ساعت</span><span class="${total >= overall ? '' : 'muted'}"><b>${fa(pct(total, overall))}٪</b>${total >= overall ? ' 🎉' : ''}</span>`
@@ -661,7 +661,7 @@
       ${activeSubjects().map((s) => { const g = goals.find((x) => x.subject_id === s.id)?.minutes || 0; const d = perSub[s.id] || 0; return `<tr>
         <td>${subjName(s)}</td>
         <td class="num">${d ? hm(d) : '<span class="muted">—</span>'}</td>
-        <td><input class="input num" type="number" min="0" step="0.5" data-goal="${s.id}" value="${g ? g / 60 : ''}"></td>
+        <td><input class="input num" type="number" min="0" step="any" data-goal="${s.id}" value="${g ? g / 60 : ''}"></td>
         <td class="bar">${bar(d, g)}${g ? `<span class="muted">${fa(pct(d, g))}٪</span>` : ''}</td></tr>`; }).join('')}
       </table></details>`;
   }
@@ -891,10 +891,25 @@
           <button class="btn danger" id="wipe">${ic('trash')} پاک کردن کل تاریخچه…</button>
         </div>
       </div>
+      <div class="card">
+        <div class="card-head"><h2>${ic('zap')} نسخه و به‌روزرسانی</h2><span class="spacer"></span><span class="muted" id="verNow">…</span></div>
+        <div class="row">
+          <button class="btn" id="checkUpdate">${ic('download')} بررسی نسخهٔ جدید</button>
+          <span class="sub" id="updateMsg">به‌روزرسانی هیچ‌وقت دیتا رو خراب نمی‌کنه: قبل از اولین اجرای نسخهٔ جدید، کپی امن دیتابیس در پوشهٔ بکاپ ذخیره می‌شه و تغییرات دیتابیس فقط «اضافه‌کردنی» هستن.</span>
+        </div>
+      </div>
       <div class="card"><div class="row"><span class="sub">راهنمای استفاده، نصب و اشتراک‌گذاری با دوستان:</span><span class="spacer"></span><a class="btn" href="/guide.html" target="_blank">${ic('help')} راهنما</a><button class="btn" id="quitApp" title="سرور خاموش می‌شود؛ دفعهٔ بعد با میان‌بر یا start.bat اجرا کن">${ic('x')} خاموش کردن Momentum</button></div></div>
       <div class="credit"><span class="logo">${ic('zap')}</span><div><b>Momentum</b> — برنامه‌ریز مطالعه</div></div>`;
 
     $('#userName').addEventListener('change', async (e) => { state.settings = await api('PUT', '/api/settings', { user_name: e.target.value.trim() }); toast(e.target.value.trim() ? `سلام ${e.target.value.trim()}! ذخیره شد` : 'ذخیره شد'); });
+    api('GET', '/api/health').then((h) => { $('#verNow').textContent = 'نسخهٔ ' + fa(h.version); });
+    $('#checkUpdate').addEventListener('click', async () => {
+      const m = $('#updateMsg'); m.textContent = 'در حال بررسی…';
+      const u = await api('GET', '/api/update-check');
+      if (u.error) m.innerHTML = `<span style="color:var(--danger)">${esc(u.error)}</span>`;
+      else if (u.hasUpdate) m.innerHTML = `🎉 نسخهٔ <b>${fa(u.latest)}</b> موجوده (شما: ${fa(u.current)}). برای به‌روزرسانی: <code>update.bat</code> رو اجرا کن یا از <a href="${u.repo}" target="_blank">گیت‌هاب</a> ZIP جدید رو بگیر و فایل‌ها رو جایگزین کن (پوشه‌های data و backups دست نخورده می‌مونن).`;
+      else m.textContent = `✓ آخرین نسخه رو داری (${fa(u.current)}).`;
+    });
     $('#examTitle').addEventListener('change', async (e) => { state.settings = await api('PUT', '/api/settings', { exam_title: e.target.value }); toast('ذخیره شد'); });
     $('#examDate2').addEventListener('click', (e) => openPicker(e.currentTarget, S.exam_date, async (d) => { state.settings = await api('PUT', '/api/settings', { exam_date: d }); toast('تاریخ کنکور ذخیره شد'); render(); }));
     $('#themeSel').addEventListener('change', (e) => applyTheme(e.target.value));

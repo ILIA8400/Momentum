@@ -13,9 +13,13 @@ const VERSION = require('./package.json').version;
 const ARGS = new Set(process.argv.slice(2));
 const PORT = Number(process.env.PORT || 3000);
 const ROOT = __dirname;
-const PORT_FILE = path.join(ROOT, 'data', 'port.txt');
+
+const REPO_RAW = 'https://raw.githubusercontent.com/ILIA8400/Momentum/main/package.json';
+const REPO_URL = 'https://github.com/ILIA8400/Momentum';
 const DATA_FILE = process.env.PLAN_DB || path.join(ROOT, 'data', 'plan.db');
 const BACKUP_DIR = process.env.PLAN_BACKUPS || path.join(ROOT, 'backups');
+const PORT_FILE = path.join(path.dirname(DATA_FILE), 'port.txt');
+const VERSION_FILE = path.join(path.dirname(DATA_FILE), 'version.txt');
 const PUBLIC = path.join(ROOT, 'public');
 
 // حالت --stop: به نمونهٔ در حال اجرا می‌گوید خاموش شود
@@ -44,8 +48,10 @@ async function main() {
       process.exit(0);
     }
   }
+  upgradeGuard();
   db = open(DATA_FILE);
   backup.schedule(db, BACKUP_DIR, 6);
+  try { fs.mkdirSync(path.dirname(VERSION_FILE), { recursive: true }); fs.writeFileSync(VERSION_FILE, VERSION); } catch {}
   start(PORT);
 }
 
@@ -151,6 +157,16 @@ route('GET', '/api/backups', () => ({ dir: BACKUP_DIR, dbFile: DATA_FILE, files:
 route('POST', '/api/backups', () => ({ file: backup.backupNow(db, BACKUP_DIR, 'manual') }));
 route('GET', '/api/today', () => ({ today: J.todayJalali() }));
 route('GET', '/api/health', () => ({ app: APP, version: VERSION, port: server.address()?.port, pid: process.pid }));
+// بررسی نسخهٔ جدید روی گیت‌هاب (فقط وقتی کاربر بخواهد؛ آنلاین)
+route('GET', '/api/update-check', async () => {
+  try {
+    const r = await fetch(REPO_RAW + '?t=' + Date.now(), { signal: AbortSignal.timeout(6000) });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const latest = (await r.json()).version;
+    return { current: VERSION, latest, hasUpdate: cmpVer(latest, VERSION) > 0, repo: REPO_URL };
+  } catch (e) { return { current: VERSION, latest: null, error: 'دسترسی به گیت‌هاب ممکن نشد (' + e.message + ')', repo: REPO_URL }; }
+});
+function cmpVer(a, b) { const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) { if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0); } return 0; }
 route('POST', '/api/quit', () => { setTimeout(shutdown, 100); return { ok: true }; });
 // حضور تب‌های باز (برای خاموش شدن خودکار در حالت دسکتاپ)
 let lastSeen = Date.now(), byeAt = 0, sawClient = false;
@@ -200,6 +216,21 @@ function serveFile(res, file) {
 }
 
 const server = http.createServer((req, res) => handle(req, res).catch((e) => send(res, 500, { error: e.message })));
+
+// اولین اجرا بعد از به‌روزرسانی: قبل از هر migration، یک کپی خام از دیتابیس نگه دار
+function upgradeGuard() {
+  let last = '';
+  try { last = fs.readFileSync(VERSION_FILE, 'utf8').trim(); } catch {}
+  if (last === VERSION || !fs.existsSync(DATA_FILE)) return;
+  try {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    for (const suf of ['', '-wal', '-shm']) {
+      if (fs.existsSync(DATA_FILE + suf)) fs.copyFileSync(DATA_FILE + suf, path.join(BACKUP_DIR, `plan-pre-update-${last || 'unknown'}-to-${VERSION}-${stamp}.db${suf}`));
+    }
+    console.log(`ℹ نسخهٔ جدید (${last || '؟'} → ${VERSION}): قبل از به‌روزرسانی دیتابیس، کپی امن در پوشهٔ بکاپ ذخیره شد.`);
+  } catch (e) { console.error('هشدار: کپی پیش از به‌روزرسانی ناموفق بود:', e.message); }
+}
 
 // آیا روی این پورت همین اپ در حال اجراست؟
 function isMomentum(port) {

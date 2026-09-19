@@ -62,11 +62,19 @@
       <tr><td>میان‌بر <b>Momentum</b> روی دسکتاپ</td><td>در پس‌زمینه بدون پنجرهٔ سیاه اجرا می‌شه و مرورگر خودش باز می‌شه ← <b>ساده‌ترین</b></td></tr>
       <tr><td><code>start.bat</code></td><td>همون، ولی با پنجرهٔ کنسول (لاگ‌ها رو می‌بینی)</td></tr>
       <tr><td><code>stop.bat</code></td><td>خاموش کردن دستی. داخل اپ هم: تنظیمات → «خاموش کردن Momentum»</td></tr>
+      <tr><td><code>update.bat</code></td><td>به‌روزرسانی امن به آخرین نسخه (اول بکاپ می‌گیره)</td></tr>
     </table>
     <div class="tip">💡 <b>تب مرورگر رو ببندی، اپ خودش خاموش می‌شه</b> و پورت آزاد می‌شه (حدود ۱۰ ثانیه بعد؛ refresh مشکلی نداره). چیزی در پس‌زمینه نمی‌مونه.</div>
     <div class="tip">💡 <b>دو بار اجرا کنی</b> نمونهٔ دوم ساخته نمی‌شه؛ فقط مرورگر رو روی همون اپِ باز، باز می‌کنه.</div>
     <div class="tip">💡 <b>پورت</b>: پیش‌فرض ۳۰۰۰. اگه برنامهٔ دیگه‌ای گرفته باشه، خودش ۳۰۰۱، ۳۰۰۲… رو امتحان می‌کنه و مرورگر رو روی پورت درست باز می‌کنه. با خاموش شدن، پورت آزاد می‌شه. اگه مرورگر خودش باز نشد: <code>http://localhost:3000</code> (پورت فعلی در <code>data\port.txt</code>).</div>
     <p>اپ رو هر جا می‌خوای بذار (مثلاً <code>Documents\Momentum</code>)؛ اگه جابه‌جاش کردی <code>install.bat</code> رو دوباره بزن تا میان‌بر درست بشه. اجرای دستی: <code>npm start</code> / <code>npm stop</code>. هیچ <code>npm install</code>ای لازم نیست.</p>
+
+    <h3>به‌روزرسانی (بدون از دست رفتن دیتا)</h3>
+    <ol>
+      <li>تنظیمات → «بررسی نسخهٔ جدید» (نیاز به اینترنت).</li>
+      <li>اگه نسخهٔ جدید بود، <code>update.bat</code> رو بزن: اول از دیتات بکاپ می‌گیره، اپ رو می‌بنده، آخرین نسخه رو می‌گیره و دوباره اجرا می‌کنه. اگه git نداری، ZIP رو دانلود می‌کنه؛ فایل‌هاش رو روی پوشهٔ اپ بریز (Replace).</li>
+      <li>پوشه‌های <code>data\</code> و <code>backups\</code> جزو فایل‌های اپ نیستن، پس دست نمی‌خورن. اولین اجرای نسخهٔ جدید هم قبل از هر تغییر، یک کپی خام از دیتابیس در <code>backups\plan-pre-update-….db</code> می‌ذاره.</li>
+    </ol>
 
     <h2 id="usage">۲. چطور استفاده کنم؟</h2>
     <h3>تب‌ها</h3>
@@ -151,7 +159,7 @@
     <h2 id="share">۴. اشتراک‌گذاری با دوستان</h2>
     <h3>دادن اپ به دوستان</h3>
     <ol>
-      <li>پوشهٔ اپ رو <b>بدون</b> پوشه‌های <code>data\</code> و <code>backups\</code> زیپ کن (اون‌ها دیتای شخصی توئه). لازم: <code>server.js</code>، <code>package.json</code>، <code>install.bat</code>، <code>start.bat</code>، <code>start-hidden.vbs</code>، <code>stop.bat</code>، پوشه‌های <code>src\</code> و <code>public\</code>.</li>
+      <li>پوشهٔ اپ رو <b>بدون</b> پوشه‌های <code>data\</code> و <code>backups\</code> زیپ کن (اون‌ها دیتای شخصی توئه). لازم: <code>server.js</code>، <code>package.json</code>، <code>install.bat</code>، <code>start.bat</code>، <code>start-hidden.vbs</code>، <code>stop.bat</code>، <code>update.bat</code>، پوشه‌های <code>src\</code> و <code>public\</code>.</li>
       <li>زیپ رو بفرست (تلگرام، درایو…).</li>
       <li>دوستت: Node.js نصب می‌کنه → زیپ رو باز می‌کنه → <code>install.bat</code> → میان‌بر دسکتاپ. تمام.</li>
     </ol>

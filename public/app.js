@@ -769,27 +769,12 @@
         <div class="steps">
           <div class="step"><span class="num">۱</span><div><b>قالب رو دانلود کن</b><div class="sub">فایل اکسل با سرستون‌های درست و لیست درس‌ها. شیت «راهنما» داخلش توضیح هر ستون و نمونه داره.</div>
             <div class="row" style="margin-top:8px"><a class="btn primary sm" href="/api/import/template.xlsx" download="momentum-template.xlsx">${ic('download', 'sm')} دانلود قالب خالی</a>
-            <a class="btn sm" href="/api/import/sample.xlsx" download="momentum-sample.xlsx">${ic('sheet', 'sm')} دانلود نمونهٔ پرشده (۴ ردیف)</a></div></div></div>
-          <div class="step"><span class="num">۲</span><div><b>برنامه‌های قبلی‌ت رو توش بریز</b><div class="sub">فقط <b>تاریخ</b>، <b>درس</b> و <b>مدت</b> اجباری‌اند. مدت به دقیقه (۱۸۰) یا ساعت:دقیقه (3:00). تاریخ شمسی مثل ۱۴۰۵/۰۶/۲۷. اسم درس باید دقیقاً مثل داخل اپ باشه (لیست داخل قالب هست).</div></div></div>
+            <a class="btn sm" href="/api/import/sample.xlsx" download="momentum-sample.xlsx">${ic('sheet', 'sm')} دانلود نمونهٔ پرشده (۳ ردیف)</a></div></div></div>
+          <div class="step"><span class="num">۲</span><div><b>برنامه‌های قبلی‌ت رو توش بریز</b><div class="sub">فقط <b>تاریخ</b>، <b>درس</b> و <b>مدت</b> اجباری‌اند. تاریخ شمسی مثل <code>1405/06/27</code>، درس دقیقاً از لیست کشویی، مدت به دقیقه (<code>180</code>) یا ساعت:دقیقه (<code>3:00</code>). شیت «راهنما» داخل فایل توضیح هر ستون رو داره؛ اگه مطمئن نیستی، «نمونهٔ پرشده» رو ببین و مثل اون بنویس.</div></div></div>
           <div class="step"><span class="num">۳</span><div><b>فایل رو برگردون</b><div class="sub">بررسی می‌کنم؛ اگه قالب یا ردیفی مشکل داشته باشه می‌گم. چیزی اضافه نمی‌شه تا خودت تأیید کنی.</div>
             <label class="btn sm" style="margin-top:8px">${ic('upload', 'sm')} انتخاب فایل (xlsx یا csv) <input type="file" id="impFile" accept=".xlsx,.csv" hidden></label>
             <span class="muted" id="impName">${esc(importState.fileName)}</span></div></div>
         </div>
-      </div>
-      <div class="card">
-        <div class="card-head"><h2>${ic('help')} هر ستون چی باید باشه؟</h2><span class="spacer"></span><span class="muted">فقط ۳ ستون اول با * اجباری‌اند؛ بقیه رو خالی بذار</span></div>
-        <div class="imp-table-wrap"><table class="imp-table cols-guide">
-          <tr><th>ستون</th><th>اجباری؟</th><th>چی بنویسم</th><th>مثال درست</th><th>اشتباه رایج</th></tr>
-          <tr><td><b>تاریخ</b></td><td class="req">بله *</td><td>تاریخ شمسی: سال/ماه/روز. اعداد فارسی یا انگلیسی، با / یا -</td><td class="ex">1405/06/27<br>۱۴۰۵/۰۶/۲۷<br>1405-6-7</td><td class="no">27/06/1405 (روز اول نه)<br>۲۷ شهریور (اسم ماه نه)</td></tr>
-          <tr><td><b>درس</b></td><td class="req">بله *</td><td>دقیقاً یکی از درس‌های اپ (توی قالب لیست کشویی داره). درس جدید می‌خوای؟ اول توی تنظیمات بساز</td><td class="ex">گسسته<br>ساختمان داده<br>هوش</td><td class="no">ساختمان (ناقص)<br>هوش مصنوعی (اسم اپ «هوش» است)<br>امار (باید «آمار»)</td></tr>
-          <tr><td><b>مدت کل</b></td><td class="req">بله * <span class="muted">(مگر ستون‌های زمانی دیگه پر باشن)</span></td><td><b>دقیقه</b> یا <b>ساعت:دقیقه</b>. اکسل اگه 1:45 رو به ساعت تبدیل کرد اشکالی نداره</td><td class="ex">180 (= ۳ ساعت)<br>3:00<br>1:45<br>۲ ساعت</td><td class="no">3 (یعنی ۳ دقیقه، نه ۳ ساعت!)<br>1.5 (یعنی ۱ دقیقه)</td></tr>
-          <tr><td>ساعت شروع / پایان</td><td>نه</td><td>ساعت ۲۴ساعته. اگه هر دو پر باشن و «مدت کل» خالی، مدت خودش حساب می‌شه</td><td class="ex">08:30 و 10:00<br>23:30 و 00:15 (عبور از نیمه‌شب اوکیه)</td><td class="no">8.30<br>۸ صبح</td></tr>
-          <tr><td>خواندن / مرور / تست زدن</td><td>نه</td><td><b>دقیقه</b>. اگه «مدت کل» خالی باشه، جمع این سه می‌شه مدت کل</td><td class="ex">خواندن 90، مرور 30 ← مدت کل ۱۲۰</td><td class="no">1:30 (این ستون‌ها فقط دقیقه)</td></tr>
-          <tr><td>تعداد تست / درست / غلط</td><td>نه</td><td>عدد صحیح. درست + غلط نباید از تعداد کل بیشتر بشه (بقیه = نزده)</td><td class="ex">60 / 42 / 9<br>فقط 30 (بدون درست/غلط)</td><td class="no">تعداد 20 ولی درست 15 + غلط 8 = 23</td></tr>
-          <tr><td>شرح</td><td>نه</td><td>هر متنی. برای فیلم‌ها شماره جلسه بنویس</td><td class="ex">فیلم جلسه ۱۲<br>فصل ۳ تا صفحه ۴۰</td><td></td></tr>
-          <tr><td>انجام شد</td><td>نه</td><td>بله یا خیر. خالی = بله</td><td class="ex">بله<br>خیر</td><td class="no">ok / done / تیک ✓</td></tr>
-        </table></div>
-        <div class="warn-box" style="margin-top:10px">${ic('info', 'sm')} <span>سرستون ردیف اول رو دست نزن و ستون‌ها رو جابه‌جا نکن. ردیف‌های خالی نادیده گرفته می‌شن. چند ردیف با یک تاریخ و درس (چند جلسه در روز) مشکلی نداره. اگه مطمئن نیستی، «نمونهٔ پرشده» رو دانلود کن و مثل اون بنویس.</span></div>
       </div>
       <div id="impResult">${r ? importPreview(r) : ''}</div>`;
 
@@ -907,7 +892,7 @@
         </div>
       </div>
       <div class="card"><div class="row"><span class="sub">راهنمای استفاده، نصب و اشتراک‌گذاری با دوستان:</span><span class="spacer"></span><a class="btn" href="/guide.html" target="_blank">${ic('help')} راهنما</a><button class="btn" id="quitApp" title="سرور خاموش می‌شود؛ دفعهٔ بعد با میان‌بر یا start.bat اجرا کن">${ic('x')} خاموش کردن Momentum</button></div></div>
-      <div class="credit"><span class="logo">${ic('zap')}</span><div><b>Momentum</b> — برنامه‌ریز مطالعه<br><span class="muted">ساخته شده توسط <b>سینیور ایلیا</b></span></div></div>`;
+      <div class="credit"><span class="logo">${ic('zap')}</span><div><b>Momentum</b> — برنامه‌ریز مطالعه</div></div>`;
 
     $('#userName').addEventListener('change', async (e) => { state.settings = await api('PUT', '/api/settings', { user_name: e.target.value.trim() }); toast(e.target.value.trim() ? `سلام ${e.target.value.trim()}! ذخیره شد` : 'ذخیره شد'); });
     $('#examTitle').addEventListener('change', async (e) => { state.settings = await api('PUT', '/api/settings', { exam_title: e.target.value }); toast('ذخیره شد'); });
@@ -951,6 +936,12 @@
       } catch (err) { toast('فایل نامعتبر: ' + err.message, true); }
     });
   }
+
+  // ---------- حضور (برای خاموش شدن خودکار سرور در حالت دسکتاپ) ----------
+  const beat = () => fetch('/api/heartbeat', { method: 'POST', keepalive: true }).catch(() => {});
+  beat(); setInterval(beat, 10000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) beat(); });
+  window.addEventListener('pagehide', () => { try { navigator.sendBeacon('/api/bye'); } catch {} });
 
   // ---------- init ----------
   renderHeader();

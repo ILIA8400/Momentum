@@ -7,7 +7,7 @@ const backup = require('./src/backup');
 const J = require('./src/jalali');
 const importer = require('./src/importer');
 
-const { execFile } = require('node:child_process');
+const { spawn } = require('node:child_process');
 const APP = 'momentum';
 const VERSION = require('./package.json').version;
 const ARGS = new Set(process.argv.slice(2));
@@ -24,8 +24,30 @@ if (ARGS.has('--stop')) {
   return;
 }
 
-const db = open(DATA_FILE);
-backup.schedule(db, BACKUP_DIR, 6);
+// حالت دسکتاپ (--open): وقتی همهٔ تب‌های اپ بسته شدند، سرور خودش خاموش می‌شود و پورت آزاد می‌شود
+const DESKTOP = (ARGS.has('--open') || ARGS.has('--desktop')) && !ARGS.has('--keep-alive');
+const IDLE_MS = Number(process.env.MOMENTUM_IDLE_MS) || 90 * 1000;      // بدون هیچ heartbeat به این مدت → خاموش
+const BYE_GRACE_MS = Number(process.env.MOMENTUM_BYE_MS) || 8 * 1000;  // بعد از بسته شدن تب، این‌قدر صبر کن (برای refresh)
+const TICK_MS = Number(process.env.MOMENTUM_TICK_MS) || 15000;
+
+let db;
+main().catch((e) => { console.error('خطا:', e.message); process.exit(1); });
+
+async function main() {
+  // نمونهٔ در حال اجرا؟ (پورت ذخیره‌شده یا پیش‌فرض) → فقط مرورگر
+  let saved = 0;
+  try { saved = Number(fs.readFileSync(PORT_FILE, 'utf8').trim()) || 0; } catch {}
+  for (const p of new Set([saved, PORT].filter(Boolean))) {
+    if (await isMomentum(p)) {
+      console.log(`ℹ Momentum از قبل روی http://localhost:${p} در حال اجراست — همان باز می‌شود.`);
+      if (ARGS.has('--open')) await openBrowser(`http://localhost:${p}`);
+      process.exit(0);
+    }
+  }
+  db = open(DATA_FILE);
+  backup.schedule(db, BACKUP_DIR, 6);
+  start(PORT);
+}
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
 
@@ -99,10 +121,9 @@ route('GET', '/api/import/sample.xlsx', (req, p, url, res) => {
   const t = J.todayJalali().replace(/-/g, '/');
   const y = J.addDays(J.todayJalali(), -1).replace(/-/g, '/');
   const sample = [
-    [y, subs[0] || 'گسسته', '08:00', '09:40', '', '70', '', '30', '60', '42', '9', 'تست فصل ۳ — مدت از ساعت شروع/پایان حساب می‌شود', 'بله'],
+    [y, subs[0] || 'گسسته', '08:00', '09:40', '', '70', '', '30', '60', '42', '9', 'تست فصل ۳ — مدت از ساعت شروع/پایان حساب می‌شود؛ ۶۰ تست: ۴۲ درست، ۹ غلط', 'بله'],
     [y, subs[1] || 'مدار', '', '', '3:00', '', '', '', '', '', '', 'فیلم جلسه ۱۲ — فقط مدت کل', 'بله'],
     [t, subs[2] || 'هوش', '', '', '', '90', '30', '', '', '', '', 'خواندن ۹۰ + مرور ۳۰ = مدت کل ۱۲۰', 'خیر'],
-    [t, subs[3] || 'زبان', '', '', '45', '', '', '', '20', '14', '2', 'تست‌های فصل ۲ — ۲۰ تست، ۱۴ درست، ۲ غلط', 'بله'],
   ];
   send(res, 200, importer.buildTemplate(db.listSubjects(), sample), { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="momentum-sample.xlsx"' });
   return null;
@@ -131,6 +152,24 @@ route('POST', '/api/backups', () => ({ file: backup.backupNow(db, BACKUP_DIR, 'm
 route('GET', '/api/today', () => ({ today: J.todayJalali() }));
 route('GET', '/api/health', () => ({ app: APP, version: VERSION, port: server.address()?.port, pid: process.pid }));
 route('POST', '/api/quit', () => { setTimeout(shutdown, 100); return { ok: true }; });
+// حضور تب‌های باز (برای خاموش شدن خودکار در حالت دسکتاپ)
+let lastSeen = Date.now(), byeAt = 0, sawClient = false;
+route('POST', '/api/heartbeat', () => { lastSeen = Date.now(); byeAt = 0; sawClient = true; return { ok: true, desktop: DESKTOP }; });
+route('POST', '/api/bye', () => { byeAt = Date.now(); return { ok: true }; });
+if (DESKTOP) {
+  let lastTick = Date.now();
+  const t = setInterval(() => {
+    const now = Date.now();
+    // اگر سیستم خواب رفته بود (فاصلهٔ تیک خیلی بیشتر از حد)، مهلت تازه بده
+    if (now - lastTick > 3 * TICK_MS) { lastSeen = now; byeAt = 0; }
+    lastTick = now;
+    if (!sawClient) return; // هنوز مرورگر باز نشده (مثلاً کند بالا آمده)
+    const idle = now - lastSeen > IDLE_MS;
+    const gone = byeAt && now - byeAt > BYE_GRACE_MS && now - lastSeen > BYE_GRACE_MS;
+    if (idle || gone) { console.log('ℹ همهٔ تب‌های Momentum بسته شد؛ سرور خاموش می‌شود و پورت آزاد می‌گردد.'); shutdown(); }
+  }, TICK_MS);
+  t.unref();
+}
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://localhost');
@@ -168,9 +207,15 @@ function isMomentum(port) {
     .then((r) => r.json()).then((j) => j.app === APP).catch(() => false);
 }
 function openBrowser(url) {
-  if (process.platform === 'win32') execFile('cmd', ['/c', 'start', '', url], { windowsHide: true }, () => {});
-  else if (process.platform === 'darwin') execFile('open', [url], () => {});
-  else execFile('xdg-open', [url], () => {});
+  return new Promise((resolve) => {
+    const [cmd, args] = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
+    let child;
+    try { child = spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }); } catch { return resolve(false); }
+    child.on('exit', () => resolve(true));
+    child.on('error', () => resolve(false));
+    child.unref();
+    setTimeout(() => resolve(true), 1500);
+  });
 }
 async function stopRunning() {
   let port = PORT;
@@ -188,8 +233,9 @@ async function start(port, tries = 10) {
     if (err.code !== 'EADDRINUSE') { console.error('خطا در اجرای سرور:', err.message); process.exit(1); }
     if (await isMomentum(port)) {
       console.log(`ℹ Momentum از قبل روی http://localhost:${port} در حال اجراست — همان باز می‌شود.`);
-      if (ARGS.has('--open')) openBrowser(`http://localhost:${port}`);
-      db.close(); process.exit(0);
+      if (ARGS.has('--open')) await openBrowser(`http://localhost:${port}`);
+      try { db.close(); } catch {}
+      process.exit(0);
     }
     if (tries <= 1) { console.error(`پورت‌های ${PORT} تا ${port} همه اشغال‌اند.`); process.exit(1); }
     console.log(`⚠ پورت ${port} توسط برنامهٔ دیگری اشغال است؛ امتحان ${port + 1}…`);
@@ -204,16 +250,15 @@ server.once('listening', () => {
   console.log(`⚡ Momentum ${VERSION}:  ${url}`);
   console.log(`  دیتابیس:  ${DATA_FILE}`);
   console.log(`  بکاپ‌ها:   ${BACKUP_DIR}`);
-  console.log('  برای خاموش کردن: این پنجره را ببند، Ctrl+C بزن، یا stop.bat را اجرا کن.');
+  console.log(DESKTOP ? '  با بسته شدن تب مرورگر، سرور خودش خاموش می‌شود (برای غیرفعال کردن: --keep-alive).' : '  برای خاموش کردن: این پنجره را ببند، Ctrl+C بزن، یا stop.bat را اجرا کن.');
   if (ARGS.has('--open')) openBrowser(url);
 });
-start(PORT);
 
 let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return; shuttingDown = true;
-  try { backup.backupNow(db, BACKUP_DIR, 'exit'); } catch {}
-  try { db.close(); } catch {}
+  try { if (db) backup.backupNow(db, BACKUP_DIR, 'exit'); } catch {}
+  try { if (db) db.close(); } catch {}
   try { fs.unlinkSync(PORT_FILE); } catch {}
   process.exit(0);
 }

@@ -1,7 +1,7 @@
 {
   "name": "momentum",
   "version": "1.0.0",
-  "description": "Momentum — برنامه‌ریز مطالعه لوکال با SQLite (ساخته شده توسط سینیور ایلیا)",
+  "description": "Momentum — برنامه‌ریز مطالعه لوکال با SQLite",
   "main": "server.js",
   "type": "commonjs",
   "scripts": {

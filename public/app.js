@@ -245,7 +245,9 @@
   async function renderDash() {
     const t = today(), y = J.addDays(t, -1);
     const ws = J.weekStart(t), we = J.addDays(ws, 6);
-    const [entries, yst, last7, weekSt, goals, rec, note] = await Promise.all([
+    const hmRange = localStorage.getItem('hmRange') === '12' ? 12 : 6;
+    const hmFrom = J.weekStart(J.addDays(t, -(hmRange === 12 ? 365 : 182)));
+    const [entries, yst, last7, weekSt, goals, rec, note, hmStats] = await Promise.all([
       api('GET', `/api/entries?from=${t}&to=${t}`),
       api('GET', `/api/stats?from=${y}&to=${y}`),
       api('GET', `/api/stats?from=${J.addDays(t, -7)}&to=${y}`),
@@ -253,6 +255,7 @@
       api('GET', `/api/goals?period=week&key=${ws}`),
       api('GET', '/api/records'),
       api('GET', `/api/notes/${t}`),
+      api('GET', `/api/stats?from=${hmFrom}&to=${t}`),
     ]);
     const S = state.settings;
     const sum = (k) => entries.reduce((s, e) => s + (e[k] || 0), 0);
@@ -352,18 +355,27 @@
               <a class="btn" href="/api/backup" download="plan-backup-${t}.json">${ic('download')} بکاپ کامل</a>
             </div>
           </div>
-          <div class="card import-cta">
+        </div>
+      </div>
+      <div class="card heat-card">
+        <div class="card-head"><h2>${ic('activity')} نقشهٔ مطالعه</h2>
+          <span class="spacer"></span>
+          <span class="range"><button class="btn pill sm ${hmRange === 6 ? 'active' : ''}" data-hm="6">۶ ماه اخیر</button><button class="btn pill sm ${hmRange === 12 ? 'active' : ''}" data-hm="12">۱ سال اخیر</button></span>
+        </div>
+        ${heatmap(hmStats.byDay, hmFrom, t)}
+      </div>
+      <div class="card import-cta">
             <div class="row">
               <span class="ico">${ic('sheet')}</span>
               <div class="grow"><b>برنامه‌های قبلی داری که وارد نکردی؟</b><div class="sub">قالب اکسل رو بگیر، پرش کن، برگردون — بعد از بررسی یک‌جا اضافه می‌شن.</div></div>
               <button class="btn primary" data-view-go="import">${ic('upload')} ورود از اکسل</button>
             </div>
-          </div>
-        </div>
       </div>`;
 
     $('#goAdd').addEventListener('click', () => { state.date = t; setView('day'); });
     $$('[data-view-go]', main).forEach((b) => b.addEventListener('click', () => setView(b.dataset.viewGo)));
+    $$('[data-hm]', main).forEach((b) => b.addEventListener('click', () => { localStorage.setItem('hmRange', b.dataset.hm); render(); }));
+    bindHeatmap();
     $('#nextQuote').addEventListener('click', () => { quoteOffset++; $('#quoteText').textContent = quoteOfDay(); });
     $('#examDate').addEventListener('click', (e) => openPicker(e.currentTarget, S.exam_date, async (d) => { state.settings = await api('PUT', '/api/settings', { exam_date: d }); toast('تاریخ کنکور ذخیره شد'); render(); }));
     $$('.todo input', main).forEach((chk) => chk.addEventListener('change', async () => {
@@ -376,6 +388,66 @@
     const save = async () => { if (ta.value === last) return; st.textContent = 'در حال ذخیره…'; await api('PUT', `/api/notes/${t}`, { text: ta.value }); last = ta.value; st.textContent = 'ذخیره شد ✓'; setTimeout(() => (st.textContent = ''), 1500); };
     ta.addEventListener('input', () => { clearTimeout(timer); st.textContent = '…'; timer = setTimeout(save, 700); });
     ta.addEventListener('blur', () => { clearTimeout(timer); save(); });
+  }
+
+  // ===== نقشهٔ مطالعه (مثل GitHub) =====
+  // سطح‌ها از روی دادهٔ واقعی (چارک‌های روزهای مطالعه‌شده)؛ با دادهٔ کم، آستانه‌های ثابت
+  function heatLevels(minutesList) {
+    const nz = minutesList.filter((m) => m > 0).sort((a, b) => a - b);
+    const fixed = [60, 120, 240];
+    if (nz.length < 8) return fixed;
+    const q = (p) => nz[Math.min(nz.length - 1, Math.floor(p * nz.length))];
+    const th = [q(0.25), q(0.5), q(0.75)];
+    return th[0] < th[1] && th[1] < th[2] ? th : fixed;
+  }
+  function heatmap(byDay, from, to) {
+    const map = Object.fromEntries(byDay.map((d) => [d.date, d]));
+    const th = heatLevels(byDay.map((d) => d.minutes));
+    const level = (m) => (!m ? 0 : m <= th[0] ? 1 : m <= th[1] ? 2 : m <= th[2] ? 3 : 4);
+    const start = J.weekStart(from);
+    const weeks = [];
+    for (let w = start; w <= to; w = J.addDays(w, 7)) weeks.push(w);
+    const months = weeks.map((w, i) => { const j = J.parse(w); const prev = i ? J.parse(weeks[i - 1]) : null; return !prev || prev.jm !== j.jm ? J.MONTHS[j.jm - 1] : ''; });
+    const cells = weeks.map((w) => Array.from({ length: 7 }, (_, i) => {
+      const d = J.addDays(w, i);
+      if (d < from || d > to) return '<i class="hm-cell empty"></i>';
+      const x = map[d];
+      const lv = level(x?.minutes || 0);
+      const tip = [fmtFull(d), `مطالعه: ${x ? hm(x.minutes) : 'هیچ'}`, x?.tests ? `تست: ${fa(x.tests)}` : '', x?.percent != null ? `درصد: ${fa(x.percent)}٪` : ''].filter(Boolean).join('\n');
+      return `<i class="hm-cell l${lv} ${d === today() ? 'today' : ''}" data-d="${d}" data-tip="${esc(tip)}"></i>`;
+    }).join(''));
+    const studied = byDay.filter((d) => d.minutes > 0).length;
+    const total = byDay.reduce((s, d) => s + d.minutes, 0);
+    const best = byDay.reduce((b, d) => (d.minutes > (b?.minutes || 0) ? d : b), null);
+    return `<div class="hm-wrap">
+      <div class="hm-scroll" id="hmScroll">
+        <div class="hm-months" style="grid-template-columns:repeat(${weeks.length},1fr)">${months.map((m) => `<span>${m}</span>`).join('')}</div>
+        <div class="hm-body">
+          <div class="hm-days">${J.WEEKDAYS.map((w, i) => `<span>${i % 2 === 0 ? w.slice(0, 1) : ''}</span>`).join('')}</div>
+          <div class="hm-grid" style="grid-template-columns:repeat(${weeks.length},var(--hm))">${cells.map((c) => `<div class="hm-col">${c}</div>`).join('')}</div>
+        </div>
+      </div>
+      <div class="hm-foot">
+        <span class="sub">${fa(studied)} روز مطالعه · ${hours(total)} ساعت${best ? ` · بهترین روز: ${hm(best.minutes)} (${fmtShort(best.date)})` : ''}</span>
+        <span class="spacer"></span>
+        <span class="hm-legend"><span class="muted">کمتر</span><i class="hm-cell l0"></i><i class="hm-cell l1" title="تا ${hm(th[0])}"></i><i class="hm-cell l2" title="تا ${hm(th[1])}"></i><i class="hm-cell l3" title="تا ${hm(th[2])}"></i><i class="hm-cell l4" title="بیشتر از ${hm(th[2])}"></i><span class="muted">بیشتر</span></span>
+      </div>
+      <div class="hm-tip" id="hmTip"></div>
+    </div>`;
+  }
+  function bindHeatmap() {
+    const tip = $('#hmTip'), wrap = $('.hm-wrap'), sc = $('#hmScroll');
+    if (!wrap) return;
+    // اسکرول به انتهای (جدیدترین) ستون‌ها در RTL
+    if (sc) sc.scrollLeft = -sc.scrollWidth;
+    wrap.addEventListener('mouseover', (e) => {
+      const c = e.target.closest('.hm-cell[data-tip]'); if (!c) return;
+      tip.textContent = c.dataset.tip; tip.style.display = 'block';
+      const r = c.getBoundingClientRect(), w = wrap.getBoundingClientRect();
+      tip.style.left = `${r.left - w.left + r.width / 2}px`; tip.style.top = `${r.top - w.top - 8}px`;
+    });
+    wrap.addEventListener('mouseout', (e) => { if (e.target.closest('.hm-cell')) tip.style.display = 'none'; });
+    wrap.addEventListener('click', (e) => { const c = e.target.closest('.hm-cell[data-d]'); if (c) { state.date = c.dataset.d; setView('day'); } });
   }
 
   function daybar(entries, total) {

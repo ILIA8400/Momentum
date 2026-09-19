@@ -410,7 +410,7 @@
     const months = weeks.map((w, i) => { const j = J.parse(w); const prev = i ? J.parse(weeks[i - 1]) : null; return !prev || prev.jm !== j.jm ? J.MONTHS[j.jm - 1] : ''; });
     const cells = weeks.map((w) => Array.from({ length: 7 }, (_, i) => {
       const d = J.addDays(w, i);
-      if (d < from || d > to) return '<i class="hm-cell empty"></i>';
+      if (d < from || d > to) return '<i class="hm-cell hm-empty"></i>';
       const x = map[d];
       const lv = level(x?.minutes || 0);
       const tip = [fmtFull(d), `مطالعه: ${x ? hm(x.minutes) : 'هیچ'}`, x?.tests ? `تست: ${fa(x.tests)}` : '', x?.percent != null ? `درصد: ${fa(x.percent)}٪` : ''].filter(Boolean).join('\n');
@@ -419,9 +419,9 @@
     const studied = byDay.filter((d) => d.minutes > 0).length;
     const total = byDay.reduce((s, d) => s + d.minutes, 0);
     const best = byDay.reduce((b, d) => (d.minutes > (b?.minutes || 0) ? d : b), null);
-    return `<div class="hm-wrap">
+    return `<div class="hm-wrap" data-weeks="${weeks.length}">
       <div class="hm-scroll" id="hmScroll">
-        <div class="hm-months" style="grid-template-columns:repeat(${weeks.length},1fr)">${months.map((m) => `<span>${m}</span>`).join('')}</div>
+        <div class="hm-months" style="grid-template-columns:repeat(${weeks.length},var(--hm))">${months.map((m) => `<span>${m}</span>`).join('')}</div>
         <div class="hm-body">
           <div class="hm-days">${J.WEEKDAYS.map((w, i) => `<span>${i % 2 === 0 ? w.slice(0, 1) : ''}</span>`).join('')}</div>
           <div class="hm-grid" style="grid-template-columns:repeat(${weeks.length},var(--hm))">${cells.map((c) => `<div class="hm-col">${c}</div>`).join('')}</div>
@@ -438,8 +438,9 @@
   function bindHeatmap() {
     const tip = $('#hmTip'), wrap = $('.hm-wrap'), sc = $('#hmScroll');
     if (!wrap) return;
-    // اسکرول به انتهای (جدیدترین) ستون‌ها در RTL
-    if (sc) sc.scrollLeft = -sc.scrollWidth;
+    // اندازهٔ مربع‌ها طوری که کل بازه بدون اسکرول جا شود
+    const fit = () => { const n = +wrap.dataset.weeks || 1; const w = wrap.clientWidth - 30; const size = Math.max(7, Math.min(18, Math.floor((w - (n - 1) * 3) / n))); wrap.style.setProperty('--hm', size + 'px'); };
+    fit(); window.addEventListener('resize', fit, { passive: true });
     wrap.addEventListener('mouseover', (e) => {
       const c = e.target.closest('.hm-cell[data-tip]'); if (!c) return;
       tip.textContent = c.dataset.tip; tip.style.display = 'block';

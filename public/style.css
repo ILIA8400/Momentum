@@ -474,15 +474,15 @@ a.theme-btn { text-decoration: none; }
 /* ---------- heatmap ---------- */
 .heat-card { --hm: 13px; --hm-gap: 3px; }
 .hm-wrap { position: relative; }
-.hm-scroll { overflow-x: auto; padding-bottom: 4px; }
-.hm-months { display: grid; gap: var(--hm-gap); margin-inline-start: 26px; font-size: 11px; color: var(--muted); height: 16px; }
-.hm-months span { white-space: nowrap; overflow: visible; }
+.hm-scroll { overflow: hidden; padding: 4px 2px; }
+.hm-months { display: grid; gap: var(--hm-gap); margin-inline-start: 26px; font-size: 11px; color: var(--muted); height: 18px; }
+.hm-months span { white-space: nowrap; overflow: visible; width: 0; }
 .hm-body { display: flex; gap: 6px; align-items: flex-start; }
 .hm-days { display: grid; grid-template-rows: repeat(7, var(--hm)); gap: var(--hm-gap); font-size: 10px; color: var(--muted); width: 20px; text-align: center; line-height: var(--hm); }
 .hm-grid { display: grid; gap: var(--hm-gap); }
 .hm-col { display: grid; grid-template-rows: repeat(7, var(--hm)); gap: var(--hm-gap); }
 .hm-cell { display: block; width: var(--hm); height: var(--hm); border-radius: 3px; background: var(--bg-2); cursor: pointer; transition: transform .1s; }
-.hm-cell.empty { visibility: hidden; cursor: default; }
+.hm-cell.hm-empty { visibility: hidden; cursor: default; }
 .hm-cell:hover { transform: scale(1.25); outline: 1px solid var(--text-2); }
 .hm-cell.today { box-shadow: 0 0 0 1.5px var(--primary); }
 .hm-cell.l1 { background: color-mix(in srgb, var(--primary) 30%, var(--bg-2)); }

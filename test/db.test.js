@@ -85,10 +85,10 @@ test('records: best day/week and streaks', () => {
   const db = open(':memory:');
   const J = require('../src/jalali');
   const t = J.todayJalali();
-  db.addEntry({ date: J.addDays(t, -2), subject_id: 1, minutes: 60, tests: 10 });
-  db.addEntry({ date: J.addDays(t, -1), subject_id: 1, minutes: 200, tests: 5 });
-  db.addEntry({ date: t, subject_id: 2, minutes: 30, tests: 50 });
-  db.addEntry({ date: J.addDays(t, -10), subject_id: 2, minutes: 90, tests: 0 });
+  db.addEntry({ date: J.addDays(t, -2), subject_id: 1, minutes: 60, tests: 10, done: true });
+  db.addEntry({ date: J.addDays(t, -1), subject_id: 1, minutes: 200, tests: 5, done: true });
+  db.addEntry({ date: t, subject_id: 2, minutes: 30, tests: 50, done: true });
+  db.addEntry({ date: J.addDays(t, -10), subject_id: 2, minutes: 90, tests: 0, done: true });
   const r = db.records();
   assert.strictEqual(r.bestDay.date, J.addDays(t, -1));
   assert.strictEqual(r.bestDay.minutes, 200);

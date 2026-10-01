@@ -88,7 +88,7 @@ route('DELETE', '/api/entries/:id', (req, p) => { db.deleteEntry(+p.id); return 
 route('GET', '/api/goals', (req, p, url) => db.getGoals(url.searchParams.get('period'), url.searchParams.get('key')));
 route('PUT', '/api/goals', async (req) => { const b = await readBody(req); db.setGoal(b.period, b.key, b.subject_id, b.minutes); return { ok: true }; });
 
-route('GET', '/api/stats', (req, p, url) => db.stats(url.searchParams.get('from'), url.searchParams.get('to')));
+route('GET', '/api/stats', (req, p, url) => db.stats(url.searchParams.get('from'), url.searchParams.get('to'), url.searchParams.get('done') === '1'));
 route('GET', '/api/records', () => db.records());
 
 route('GET', '/api/notes/:date', (req, p) => ({ date: p.date, text: db.getNote(p.date) }));

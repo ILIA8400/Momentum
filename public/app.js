@@ -247,15 +247,17 @@
     const ws = J.weekStart(t), we = J.addDays(ws, 6);
     const hmRange = localStorage.getItem('hmRange') === '12' ? 12 : 6;
     const hmFrom = J.weekStart(J.addDays(t, -(hmRange === 12 ? 365 : 182)));
-    const [entries, yst, last7, weekSt, goals, rec, note, hmStats] = await Promise.all([
+    const [entries, yst, last7, weekSt, weekStDone, goals, rec, note, hmStats, hmStatsDone] = await Promise.all([
       api('GET', `/api/entries?from=${t}&to=${t}`),
-      api('GET', `/api/stats?from=${y}&to=${y}`),
-      api('GET', `/api/stats?from=${J.addDays(t, -7)}&to=${y}`),
+      api('GET', `/api/stats?from=${y}&to=${y}&done=1`),
+      api('GET', `/api/stats?from=${J.addDays(t, -7)}&to=${y}&done=1`),
       api('GET', `/api/stats?from=${ws}&to=${we}`),
+      api('GET', `/api/stats?from=${ws}&to=${we}&done=1`),
       api('GET', `/api/goals?period=week&key=${ws}`),
       api('GET', '/api/records'),
       api('GET', `/api/notes/${t}`),
       api('GET', `/api/stats?from=${hmFrom}&to=${t}`),
+      api('GET', `/api/stats?from=${hmFrom}&to=${t}&done=1`),
     ]);
     const S = state.settings;
     const sum = (k) => entries.reduce((s, e) => s + (e[k] || 0), 0);
@@ -279,6 +281,10 @@
     };
     const weekGoal = goals.find((g) => g.subject_id === 0)?.minutes || 0;
     const bestSub = weekSt.bySubject[0];
+    const weekDoneTotal = weekStDone.total;
+    // برای مقایسه از آمار انجام‌شده استفاده می‌کنیم
+    const ystDone = yst;
+    const avg7Done = { minutes: last7.total / 7, tests: last7.tests / 7 };
 
     main.innerHTML = `
       <div class="quote card">
@@ -330,10 +336,10 @@
           </div>
 
           <div class="card">
-            <div class="card-head"><h2>${ic('compare')} مقایسه</h2></div>
+            <div class="card-head"><h2>${ic('compare')} مقایسه (انجام‌شده)</h2></div>
             <div class="compare">
-              <div class="cmp"><div class="l">دیروز</div><div class="v">${hours(yst.total)} س</div><div class="s">${fa(yst.tests)} تست${yst.percent != null ? ` • ${fa(yst.percent)}٪` : ''}</div></div>
-              <div class="cmp"><div class="l">میانگین ۷ روز اخیر</div><div class="v">${hours(avg7.minutes)} س ${delta(total, avg7.minutes, (v) => hours(v) + ' س')}</div><div class="s">${fa(Math.round(avg7.tests))} تست در روز</div></div>
+              <div class="cmp"><div class="l">دیروز</div><div class="v">${hours(ystDone.total)} س</div><div class="s">${fa(ystDone.tests)} تست${ystDone.percent != null ? ` • ${fa(ystDone.percent)}٪` : ''}</div></div>
+              <div class="cmp"><div class="l">میانگین ۷ روز اخیر</div><div class="v">${hours(avg7Done.minutes)} س ${delta(total, avg7Done.minutes, (v) => hours(v) + ' س')}</div><div class="s">${fa(Math.round(avg7Done.tests))} تست در روز</div></div>
               <div class="cmp"><div class="l">رکورد یک روز</div><div class="v">${rec.bestDay ? hm(rec.bestDay.minutes) : '—'}</div><div class="s">${rec.bestDay ? (total >= rec.bestDay.minutes && total ? '🎉 امروز رکورد زدی!' : `${hours(Math.max(0, rec.bestDay.minutes - total))} ساعت تا رکورد`) : ''}</div></div>
               <div class="cmp"><div class="l">زنجیره</div><div class="v">${ic('flame')} ${fa(rec.currentStreak)} روز</div><div class="s">بهترین: ${fa(rec.longestStreak)} روز</div></div>
             </div>
@@ -346,7 +352,7 @@
               <div class="ms"><div class="l">${ic('tests')} تست</div><div class="v">${fa(weekSt.tests)}</div></div>
               <div class="ms"><div class="l">${ic('sun')} روز</div><div class="v">${fa(weekSt.byDay.length)}<small>از ۷</small></div></div>
             </div>
-            ${weekGoal ? `<div class="sub" style="display:flex;justify-content:space-between"><span>هدف هفته: ${hours(weekGoal)} ساعت</span><b>${fa(pct(weekSt.total, weekGoal))}٪</b></div><div class="progress"><div class="${weekSt.total >= weekGoal ? 'over' : ''}" style="width:${Math.min(100, pct(weekSt.total, weekGoal))}%"></div></div>` : `<div class="muted">هدف هفتگی تعیین نشده — از تب هفتگی تنظیم کن</div>`}
+            ${weekGoal ? `<div class="sub" style="display:flex;justify-content:space-between"><span>هدف هفته: ${hours(weekGoal)} ساعت</span><b>${fa(pct(weekDoneTotal, weekGoal))}٪</b></div><div class="progress"><div class="${weekDoneTotal >= weekGoal ? 'over' : ''}" style="width:${Math.min(100, pct(weekDoneTotal, weekGoal))}%"></div></div>` : `<div class="muted">هدف هفتگی تعیین نشده — از تب هفتگی تنظیم کن</div>`}
             ${bestSub ? `<div class="sub" style="margin-top:8px">بیشترین مطالعهٔ هفته: ${subjName(bestSub)} <b>${hm(bestSub.minutes)}</b></div>` : ''}
             <div class="quick-actions" style="margin-top:12px">
               <a class="btn primary" href="/allplan.html" target="_blank">${ic('print')} خروجی All Plan (جدول هفتگی)</a>
@@ -358,11 +364,11 @@
         </div>
       </div>
       <div class="card heat-card">
-        <div class="card-head"><h2>${ic('activity')} نقشهٔ مطالعه</h2>
+        <div class="card-head"><h2>${ic('activity')} نقشهٔ مطالعه (انجام‌شده)</h2>
           <span class="spacer"></span>
           <span class="range"><button class="btn pill sm ${hmRange === 6 ? 'active' : ''}" data-hm="6">۶ ماه اخیر</button><button class="btn pill sm ${hmRange === 12 ? 'active' : ''}" data-hm="12">۱ سال اخیر</button></span>
         </div>
-        ${heatmap(hmStats.byDay, hmFrom, t)}
+        ${heatmap(hmStatsDone.byDay, hmFrom, t)}
       </div>
       <div class="card import-cta">
             <div class="row">
@@ -549,8 +555,9 @@
             <label class="field"><span>درست</span><input class="input num" type="number" name="correct" min="0" placeholder="۰" value="${v('correct')}"></label>
             <label class="field"><span>غلط</span><input class="input num" type="number" name="wrong" min="0" placeholder="۰" value="${v('wrong')}"></label>
           </div>
-          <div class="total" style="margin-top:10px"><span>درصد (با نمرهٔ منفی):</span><b id="pctHint">—</b></div>
-          <div class="hint">درصد = (۳×درست − غلط) ÷ (۳×کل)</div>
+          <div class="total" style="margin-top:10px"><span>درصد (نمره منفی):</span><b id="pctHint">—</b></div>
+          <div class="total" style="margin-top:4px"><span>درصد صحت (درست/کل):</span><b id="pctSimpleHint">—</b></div>
+          <div class="hint">درصد نمره منفی = (۳×درست − غلط) ÷ (۳×کل) | درصد صحت = درست ÷ کل × ۱۰۰</div>
         </div>
       </div>
       <label class="field"><span>شرح</span><input class="input" type="text" name="note" placeholder="مثلاً: فیلم جلسه ۱۲ — فصل ۳ تا صفحه ۴۰" value="${esc(v('note'))}"></label>
@@ -582,6 +589,11 @@
       const p = pctOf(num('correct'), num('wrong'), num('tests'));
       $('#pctHint').textContent = p == null ? '—' : `${fa(p)}٪`;
       $('#pctHint').style.color = p == null ? '' : p >= 50 ? 'var(--ok)' : p < 20 ? 'var(--danger)' : '';
+      // درصد صحت ساده: درست / کل * 100
+      const tests = num('tests'), correct = num('correct');
+      const simplePct = tests > 0 ? Math.round((correct / tests) * 1000) / 10 : null;
+      $('#pctSimpleHint').textContent = simplePct == null ? '—' : `${fa(simplePct)}٪`;
+      $('#pctSimpleHint').style.color = simplePct == null ? '' : simplePct >= 50 ? 'var(--ok)' : simplePct < 20 ? 'var(--danger)' : '';
     };
     ['study_min', 'review_min', 'test_min', 'start_time', 'end_time', 'tests', 'correct', 'wrong'].forEach((n) => f(n).addEventListener('input', recalc));
     f('minutes').addEventListener('input', () => { manualTotal = !!f('minutes').value; recalc(); });
@@ -636,12 +648,17 @@
   // ===== هفتگی =====
   async function renderWeek() {
     const start = J.weekStart(state.date), end = J.addDays(start, 6);
-    const [entries, goals] = await Promise.all([api('GET', `/api/entries?from=${start}&to=${end}`), api('GET', `/api/goals?period=week&key=${start}`)]);
+    const [entries, entriesDone, goals] = await Promise.all([
+      api('GET', `/api/entries?from=${start}&to=${end}`),
+      api('GET', `/api/stats?from=${start}&to=${end}&done=1`),
+      api('GET', `/api/goals?period=week&key=${start}`)
+    ]);
     const days = Array.from({ length: 7 }, (_, i) => J.addDays(start, i));
     const t = today();
     const total = entries.reduce((s, e) => s + e.minutes, 0);
     const tests = entries.reduce((s, e) => s + e.tests, 0);
     const studied = new Set(entries.map((e) => e.date)).size;
+    const doneTotal = entriesDone.total;
 
     main.innerHTML = dateNav(`${fmtShort(start)} تا ${fmtDate(end)}`, 'هفتهٔ', 7) + `
       <div class="kpis">
@@ -660,7 +677,7 @@
           ${sum || ts ? `<div class="foot">${sum ? `<span class="tag time">${hmc(sum)}</span>` : ''}${ts ? `<span class="tag test">${fa(ts)} تست</span>` : ''}</div>` : ''}
         </div>`; }).join('')}
       </div>
-      <div class="card goals">${goalsPanel('week', start, entries, goals)}</div>
+      <div class="card goals">${goalsPanel('week', start, entries, goals, doneTotal)}</div>
       <div class="card"><div class="row"><span class="sub">خروجی‌ها برای چاپ یا ذخیره به PDF:</span><span class="spacer"></span><a class="btn primary" href="/allplan.html" target="_blank">${ic('print')} All Plan (جدول هفتگی)</a><a class="btn" href="/report.html?date=${start}" target="_blank">${ic('list')} گزارش تفصیلی این هفته</a><a class="btn" href="/summary.html?date=${start}" target="_blank">${ic('sheet')} جدول خلاصه</a></div></div>`;
     bindNav(7);
     bindDayClicks();
@@ -677,12 +694,17 @@
     const mk = monthKey(state.date);
     const [first, last] = monthRange(state.date);
     const len = J.jalaliMonthLength(j.jy, j.jm);
-    const [entries, goals] = await Promise.all([api('GET', `/api/entries?from=${first}&to=${last}`), api('GET', `/api/goals?period=month&key=${mk}`)]);
+    const [entries, entriesDone, goals] = await Promise.all([
+      api('GET', `/api/entries?from=${first}&to=${last}`),
+      api('GET', `/api/stats?from=${first}&to=${last}&done=1`),
+      api('GET', `/api/goals?period=month&key=${mk}`)
+    ]);
     const byDay = {};
     for (const e of entries) { (byDay[e.date] ||= { min: 0, tests: 0, n: 0 }); byDay[e.date].min += e.minutes; byDay[e.date].tests += e.tests; byDay[e.date].n++; }
     const max = Math.max(60, ...Object.values(byDay).map((x) => x.min));
     const total = entries.reduce((s, e) => s + e.minutes, 0);
     const tests = entries.reduce((s, e) => s + e.tests, 0);
+    const doneTotal = entriesDone.total;
     const t = today();
     const offset = J.weekday(first);
     let cells = '';
@@ -705,33 +727,38 @@
       <div class="card">
         <div class="month">${J.WEEKDAYS.map((w) => `<div class="wd">${w}</div>`).join('')}${cells}</div>
       </div>
-      <div class="card goals">${goalsPanel('month', mk, entries, goals)}</div>`;
+      <div class="card goals">${goalsPanel('month', mk, entries, goals, doneTotal)}</div>`;
     bindNav('month');
     bindDayClicks();
     bindGoals('month', mk);
   }
 
   // ===== هدف‌ها =====
-  function goalsPanel(period, key, entries, goals) {
+  function goalsPanel(period, key, entries, goals, doneTotal) {
     const label = period === 'week' ? 'هفته' : 'ماه';
     const total = entries.reduce((s, e) => s + e.minutes, 0);
     const overall = goals.find((g) => g.subject_id === 0)?.minutes || 0;
     const perSub = {};
-    for (const e of entries) perSub[e.subject_id] = (perSub[e.subject_id] || 0) + e.minutes;
+    const perSubDone = {};
+    for (const e of entries) {
+      perSub[e.subject_id] = (perSub[e.subject_id] || 0) + e.minutes;
+      if (e.done) perSubDone[e.subject_id] = (perSubDone[e.subject_id] || 0) + e.minutes;
+    }
     const bar = (done, goal) => goal ? `<div class="progress"><div class="${done >= goal ? 'over' : ''}" style="width:${Math.min(100, (done / goal) * 100)}%"></div></div>` : '';
+    const progressTotal = doneTotal ?? total;
     return `<div class="card-head"><h2>${ic('target')} هدف ${label}</h2></div>
       <div class="goal-main">
         <label class="field"><span>هدف کلی (ساعت)</span><input class="input num" type="number" min="0" step="any" data-goal="0" value="${overall ? overall / 60 : ''}" placeholder="مثلاً ۳۰"></label>
         <div>
           <div class="txt">${overall
-            ? `<span><b>${hours(total)}</b> از ${hours(overall)} ساعت</span><span class="${total >= overall ? '' : 'muted'}"><b>${fa(pct(total, overall))}٪</b>${total >= overall ? ' 🎉' : ''}</span>`
-            : `<span class="muted">هدفی برای این ${label} تعیین نشده — تا حالا <b>${hours(total)}</b> ساعت مطالعه کردی</span>`}</div>
-          ${bar(total, overall)}
+            ? `<span><b>${hours(progressTotal)}</b> از ${hours(overall)} ساعت</span><span class="${progressTotal >= overall ? '' : 'muted'}"><b>${fa(pct(progressTotal, overall))}٪</b>${progressTotal >= overall ? ' 🎉' : ''}</span>`
+            : `<span class="muted">هدفی برای این ${label} تعیین نشده — تا حالا <b>${hours(progressTotal)}</b> ساعت مطالعه کردی</span>`}</div>
+          ${bar(progressTotal, overall)}
         </div>
       </div>
       <details style="margin-top:12px"><summary>${ic('right', 'sm')} هدف به تفکیک درس</summary>
       <table><tr><th>درس</th><th>مطالعه‌شده</th><th>هدف (ساعت)</th><th class="bar">پیشرفت</th></tr>
-      ${activeSubjects().map((s) => { const g = goals.find((x) => x.subject_id === s.id)?.minutes || 0; const d = perSub[s.id] || 0; return `<tr>
+      ${activeSubjects().map((s) => { const g = goals.find((x) => x.subject_id === s.id)?.minutes || 0; const d = perSubDone[s.id] || 0; return `<tr>
         <td>${subjName(s)}</td>
         <td class="num">${d ? hm(d) : '<span class="muted">—</span>'}</td>
         <td><input class="input num" type="number" min="0" step="any" data-goal="${s.id}" value="${g ? g / 60 : ''}"></td>
@@ -747,6 +774,7 @@
 
   // ===== آمار =====
   let statsRange = { kind: 'month', from: '', to: '' };
+  let statsMode = localStorage.getItem('statsMode') || 'done'; // 'all' یا 'done'
   function rangeFor(kind) {
     const t = today();
     if (kind === 'week') return [J.weekStart(t), J.addDays(J.weekStart(t), 6)];
@@ -757,7 +785,12 @@
   }
   async function renderStats() {
     const [from, to] = rangeFor(statsRange.kind);
-    const [st, rec] = await Promise.all([api('GET', `/api/stats?from=${from}&to=${to}`), api('GET', '/api/records')]);
+    const [st, stAll, rec] = await Promise.all([
+      api('GET', `/api/stats?from=${from}&to=${to}&done=1`),
+      api('GET', `/api/stats?from=${from}&to=${to}`),
+      api('GET', '/api/records')
+    ]);
+    // st = done-only, stAll = all entries
     const studiedDays = st.byDay.length;
     const avg = studiedDays ? st.total / studiedDays : 0;
     const maxSub = Math.max(1, ...st.bySubject.map((s) => s.minutes));
@@ -769,6 +802,10 @@
         <div class="range">
           ${kinds.map(([k, l]) => `<button class="btn pill ${statsRange.kind === k ? 'active' : ''}" data-kind="${k}">${l}</button>`).join('')}
           <span class="spacer"></span>
+          <span class="mode-toggle">
+            <button class="btn pill sm ${statsMode === 'done' ? 'active' : ''}" data-mode="done">${ic('check', 'sm')} انجام‌شده</button>
+            <button class="btn pill sm ${statsMode === 'all' ? 'active' : ''}" data-mode="all">${ic('list', 'sm')} برنامه‌ریزی</button>
+          </span>
           ${isAll ? '<span class="sub">کل تاریخچه</span>' : `<span class="sub">${fmtShort(from)} تا ${fmtDate(to)}</span>`}
         </div>
         ${statsRange.kind === 'custom' ? `<div class="row" style="margin-top:12px">
@@ -785,7 +822,7 @@
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>${ic('trophy')} بهترین رکوردها</h2><span class="spacer"></span><span class="muted">روی کل تاریخچه</span></div>
+        <div class="card-head"><h2>${ic('trophy')} بهترین رکوردها</h2><span class="spacer"></span><span class="muted">فقط مطالعه‌های انجام‌شده</span></div>
         <div class="records">
           ${recCard('gold', 'clock', 'بیشترین مطالعه در یک روز', rec.bestDay ? hm(rec.bestDay.minutes) : '—', rec.bestDay ? fmtFull(rec.bestDay.date) : 'هنوز رکوردی نداری')}
           ${recCard('blue', 'tests', 'بیشترین تست در یک روز', rec.bestTestDay?.tests ? fa(rec.bestTestDay.tests) + ' تست' : '—', rec.bestTestDay?.tests ? fmtFull(rec.bestTestDay.date) : 'هنوز تستی ثبت نشده')}
@@ -804,9 +841,10 @@
           <span class="val"><b>${hours(s.minutes)} س</b><span class="muted">(${fa(pct(s.minutes, st.total))}٪)</span>${s.tests ? `<span class="tag test">${fa(s.tests)} تست</span>` : ''}${pctTag(s.percent)}</span>
         </div>`).join('') : `<div class="empty">${ic('inbox')}در این بازه داده‌ای نیست</div>`}
       </div>
-      <div class="card"><div class="card-head"><h2>${ic('chart')} روند روزانه</h2><span class="spacer"></span><span class="muted">ساعت مطالعه در هر روز</span></div>${trendChart(st.byDay, from, to)}</div>`;
+      <div class="card"><div class="card-head"><h2>${ic('chart')} روند روزانه</h2><span class="spacer"></span><span class="muted">ساعت مطالعه در هر روز (انجام‌شده)</span></div>${trendChart(st.byDay, from, to)}</div>`;
 
     $$('[data-kind]', main).forEach((b) => b.addEventListener('click', () => { statsRange.kind = b.dataset.kind; if (b.dataset.kind === 'custom') { statsRange.from = from; statsRange.to = to; } render(); }));
+    $$('[data-mode]', main).forEach((b) => b.addEventListener('click', () => { statsMode = b.dataset.mode; localStorage.setItem('statsMode', statsMode); render(); }));
     $('#rf')?.addEventListener('click', (e) => openPicker(e.currentTarget, from, (d) => { statsRange.from = d; if (d > statsRange.to) statsRange.to = d; render(); }));
     $('#rt')?.addEventListener('click', (e) => openPicker(e.currentTarget, to, (d) => { statsRange.to = d; if (d < statsRange.from) statsRange.from = d; render(); }));
   }

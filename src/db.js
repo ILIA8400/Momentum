@@ -106,18 +106,18 @@ function wrap(db, file) {
     goalUpsert: db.prepare(`INSERT INTO goals (period, key, subject_id, minutes) VALUES (?, ?, ?, ?)
                             ON CONFLICT(period, key, subject_id) DO UPDATE SET minutes = excluded.minutes`),
     goalDelete: db.prepare('DELETE FROM goals WHERE period = ? AND key = ? AND subject_id = ?'),
-    statsBySubject: db.prepare(`SELECT s.id, s.name, s.color, SUM(e.minutes) AS minutes, SUM(e.tests) AS tests,
+    statsBySubject: (doneOnly) => db.prepare(`SELECT s.id, s.name, s.color, SUM(e.minutes) AS minutes, SUM(e.tests) AS tests,
                                 SUM(e.study_min) AS study_min, SUM(e.review_min) AS review_min, SUM(e.test_min) AS test_min,
                                 SUM(e.correct) AS correct, SUM(e.wrong) AS wrong,
                                 SUM(CASE WHEN e.correct + e.wrong > 0 THEN e.tests ELSE 0 END) AS scored_tests,
                                 COUNT(*) AS count, SUM(e.done) AS done
                                 FROM entries e JOIN subjects s ON s.id = e.subject_id
-                                WHERE e.date >= ? AND e.date <= ? GROUP BY s.id ORDER BY minutes DESC`),
-    statsByDay: db.prepare(`SELECT date, SUM(minutes) AS minutes, SUM(tests) AS tests, SUM(correct) AS correct, SUM(wrong) AS wrong,
+                                WHERE e.date >= ? AND e.date <= ? ${doneOnly ? 'AND e.done = 1' : ''} GROUP BY s.id ORDER BY minutes DESC`),
+    statsByDay: (doneOnly) => db.prepare(`SELECT date, SUM(minutes) AS minutes, SUM(tests) AS tests, SUM(correct) AS correct, SUM(wrong) AS wrong,
                             SUM(CASE WHEN correct + wrong > 0 THEN tests ELSE 0 END) AS scored_tests,
                             COUNT(*) AS count, SUM(done) AS done
-                            FROM entries WHERE date >= ? AND date <= ? GROUP BY date ORDER BY date`),
-    allDays: db.prepare('SELECT date, SUM(minutes) AS minutes, SUM(tests) AS tests FROM entries GROUP BY date ORDER BY date'),
+                            FROM entries WHERE date >= ? AND date <= ? ${doneOnly ? 'AND done = 1' : ''} GROUP BY date ORDER BY date`),
+    allDays: (doneOnly) => db.prepare(`SELECT date, SUM(minutes) AS minutes, SUM(tests) AS tests FROM entries ${doneOnly ? 'WHERE done = 1' : ''} GROUP BY date ORDER BY date`),
     noteGet: db.prepare('SELECT * FROM day_notes WHERE date = ?'),
     noteSet: db.prepare(`INSERT INTO day_notes (date, text, updated_at) VALUES (?, ?, datetime('now'))
                          ON CONFLICT(date) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at`),
@@ -186,17 +186,17 @@ function wrap(db, file) {
       q.settingSet.run(key, String(value));
     },
 
-    stats(from, to) {
-      const bySubject = q.statsBySubject.all(from, to).map(withPercent);
-      const byDay = q.statsByDay.all(from, to).map(withPercent);
+    stats(from, to, doneOnly = false) {
+      const bySubject = q.statsBySubject(doneOnly).all(from, to).map(withPercent);
+      const byDay = q.statsByDay(doneOnly).all(from, to).map(withPercent);
       const sum = (k) => byDay.reduce((s, d) => s + d[k], 0);
       const agg = withPercent({ correct: sum('correct'), wrong: sum('wrong'), scored_tests: sum('scored_tests') });
       return { from, to, total: sum('minutes'), tests: sum('tests'), count: sum('count'), done: sum('done'), percent: agg.percent, bySubject, byDay };
     },
 
-    // رکوردها روی کل تاریخچه
+    // رکوردها روی کل تاریخچه (فقط موارد انجام‌شده)
     records() {
-      const days = q.allDays.all();
+      const days = q.allDays(true).all();
       const best = (key) => days.reduce((b, d) => (d[key] > (b?.[key] || 0) ? d : b), null);
       const weeks = {};
       for (const d of days) {

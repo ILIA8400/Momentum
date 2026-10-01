@@ -48,6 +48,9 @@
     zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/>',
     alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4M12 17h.01"/>',
+    brain: '<path d="M12 5a3 3 0 1 0-6 0 3 3 0 0 0 6 0Z"/><path d="M12 8a5 5 0 1 0-10 0 5 5 0 0 0 10 0Z"/><path d="M12 11a7 7 0 1 0-14 0 7 7 0 0 0 14 0Z"/><path d="M12 14a9 9 0 1 0-18 0 9 9 0 0 0 18 0Z"/>',
+    eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+    minus: '<path d="M5 12h14"/>',
   };
   const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -148,7 +151,7 @@
   function cycleTheme() { const i = THEMES.findIndex((x) => x[0] === getTheme()); const next = THEMES[(i + 1) % THEMES.length]; applyTheme(next[0]); toast(`تم ${next[2]}`); }
 
   // ---------- header ----------
-  const TABS = [['dash', 'home', 'داشبورد'], ['day', 'sun', 'روزانه'], ['week', 'week', 'هفتگی'], ['month', 'calendar', 'ماهانه'], ['stats', 'chart', 'آمار'], ['import', 'sheet', 'ورود از اکسل'], ['settings', 'settings', 'تنظیمات و بکاپ']];
+  const TABS = [['dash', 'home', 'داشبورد'], ['day', 'sun', 'روزانه'], ['week', 'week', 'هفتگی'], ['month', 'calendar', 'ماهانه'], ['review', 'activity', 'مرور'], ['stats', 'chart', 'آمار'], ['import', 'sheet', 'ورود از اکسل'], ['settings', 'settings', 'تنظیمات و بکاپ']];
   function renderHeader() {
     $('#topbar').innerHTML = `
       <div class="brand"><span class="logo">${ic('zap')}</span><span>Momentum<small>برنامه‌ریز مطالعه</small></span></div>
@@ -237,7 +240,7 @@
     if (!state.subjects.length) state.subjects = await api('GET', '/api/subjects');
     if (!state.settings) state.settings = await api('GET', '/api/settings');
     try {
-      await ({ dash: renderDash, day: renderDay, week: renderWeek, month: renderMonth, stats: renderStats, import: renderImport, settings: renderSettings })[state.view]();
+      await ({ dash: renderDash, day: renderDay, week: renderWeek, month: renderMonth, stats: renderStats, review: renderReview, import: renderImport, settings: renderSettings })[state.view]();
     } catch (e) { main.innerHTML = `<div class="card">خطا: ${esc(e.message)}</div>`; console.error(e); }
   }
 
@@ -247,7 +250,7 @@
     const ws = J.weekStart(t), we = J.addDays(ws, 6);
     const hmRange = localStorage.getItem('hmRange') === '12' ? 12 : 6;
     const hmFrom = J.weekStart(J.addDays(t, -(hmRange === 12 ? 365 : 182)));
-    const [entries, yst, last7, weekSt, weekStDone, goals, rec, note, hmStats, hmStatsDone] = await Promise.all([
+    const [entries, yst, last7, weekSt, weekStDone, goals, rec, note, hmStats, hmStatsDone, dueReviews] = await Promise.all([
       api('GET', `/api/entries?from=${t}&to=${t}`),
       api('GET', `/api/stats?from=${y}&to=${y}&done=1`),
       api('GET', `/api/stats?from=${J.addDays(t, -7)}&to=${y}&done=1`),
@@ -258,6 +261,7 @@
       api('GET', `/api/notes/${t}`),
       api('GET', `/api/stats?from=${hmFrom}&to=${t}`),
       api('GET', `/api/stats?from=${hmFrom}&to=${t}&done=1`),
+      api('GET', `/api/review-items/due?now=${encodeURIComponent(new Date().toISOString())}`),
     ]);
     const S = state.settings;
     const sum = (k) => entries.reduce((s, e) => s + (e[k] || 0), 0);
@@ -376,10 +380,29 @@
               <div class="grow"><b>برنامه‌های قبلی داری که وارد نکردی؟</b><div class="sub">قالب اکسل رو بگیر، پرش کن، برگردون — بعد از بررسی یک‌جا اضافه می‌شن.</div></div>
               <button class="btn primary" data-view-go="import">${ic('upload')} ورود از اکسل</button>
             </div>
-      </div>`;
+      </div>
+      ${dueReviews.length ? `
+      <div class="card">
+        <div class="card-head"><h2>${ic('activity')} مرورهای امروز (${dueReviews.length})</h2></div>
+        <div class="review-list">${dueReviews.map(r => `
+          <div class="review-item" data-id="${r.id}" style="border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; background: var(--card);">
+            <div class="review-item-head" style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
+              <span class="subj-name" style="display: inline-flex; align-items: center; gap: 6px;"><span class="dot" style="background:${r.color};width:10px;height:10px;border-radius:50%"></span>${esc(r.subject)}</span>
+              <b>${esc(r.topic)}</b>
+            </div>
+            <div class="review-item-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn primary" data-review-start="${r.id}">${ic('activity', 'sm')} شروع مرور</button>
+              <button class="btn" data-view-go="review">${ic('activity', 'sm')} همه مرورها</button>
+            </div>
+          </div>
+        `).join('')}</div>
+      </div>
+      ` : ''}
+      `;
 
     $('#goAdd').addEventListener('click', () => { state.date = t; setView('day'); });
     $$('[data-view-go]', main).forEach((b) => b.addEventListener('click', () => setView(b.dataset.viewGo)));
+    $$('[data-review-start]', main).forEach((b) => b.addEventListener('click', () => openReviewSession(+b.dataset.reviewStart)));
     $$('[data-hm]', main).forEach((b) => b.addEventListener('click', () => { localStorage.setItem('hmRange', b.dataset.hm); render(); }));
     bindHeatmap();
     $('#nextQuote').addEventListener('click', () => { quoteOffset++; $('#quoteText').textContent = quoteOfDay(); });
@@ -562,10 +585,9 @@
       </div>
       <label class="field"><span>شرح</span><input class="input" type="text" name="note" placeholder="مثلاً: فیلم جلسه ۱۲ — فصل ۳ تا صفحه ۴۰" value="${esc(v('note'))}"></label>
       <div class="foot">
-        <label class="check"><input type="checkbox" name="done" ${ed?.done ? 'checked' : ''}> انجام شد</label>
-        <span class="spacer"></span>
         ${ed ? '<button class="btn" type="button" id="cancelEdit">انصراف</button>' : ''}
         <button class="btn primary" type="submit">${ic(ed ? 'save' : 'plus')} ${ed ? 'ذخیره تغییرات' : 'افزودن'}</button>
+        <span class="spacer"></span>
       </div>
     </form>`;
   }
@@ -1061,6 +1083,233 @@
         state.subjects = []; state.settings = null; toast('بازیابی شد'); render();
       } catch (err) { toast('فایل نامعتبر: ' + err.message, true); }
     });
+  }
+
+  // ===== مرور (Review) =====
+  async function renderReview() {
+    const [dueItems, overdueItems, allItems] = await Promise.all([
+      api('GET', '/api/review-items/due?now=' + encodeURIComponent(new Date().toISOString())),
+      api('GET', '/api/review-items/overdue'),
+      api('GET', '/api/review-items'),
+    ]);
+
+    const now = new Date();
+    const formatDue = (due) => {
+      const d = new Date(due);
+      const diff = Math.round((d - now) / (1000 * 60 * 60 * 24));
+      if (diff < 0) return `<span class="tag pct bad">${Math.abs(diff)} روز عقب‌افتاده</span>`;
+      if (diff === 0) return `<span class="tag pct good">امروز</span>`;
+      return `<span class="tag">${diff} روز دیگر</span>`;
+    };
+
+    const renderItem = (item, showDue = true) => `
+      <div class="review-item" data-id="${item.id}">
+        <div class="review-item-head">
+          <span class="subj-name"><span class="dot" style="background:${item.color}"></span>${esc(item.subject)}</span>
+          <b>${esc(item.topic)}</b>
+        </div>
+        ${showDue ? `<div class="review-item-meta">${formatDue(item.due_at)}</div>` : ''}
+        <div class="review-item-actions">
+          <button class="btn primary" data-act="start">${ic('activity', 'sm')} شروع مرور</button>
+          <button class="btn" data-act="edit">${ic('pencil', 'sm')} ویرایش</button>
+          <button class="btn danger" data-act="delete">${ic('trash', 'sm')} حذف</button>
+        </div>
+      </div>
+    `;
+
+    main.innerHTML = `
+      <div class="card">
+        <div class="card-head">
+          <h2>${ic('plus')} افزودن مبحث جدید</h2>
+        </div>
+        <form id="addReviewForm" class="eform">
+          <div class="row2">
+            <label class="field"><span>درس *</span><select name="subject_id" class="input" required>${subjectOptions()}</select></label>
+          </div>
+          <label class="field"><span>مبحث *</span><input class="input" type="text" name="topic" placeholder="مثلاً: BFS و DFS" required></label>
+          <label class="field"><span>توضیحات</span><textarea class="input" name="description" placeholder="متن برای مرور بعدی..." rows="4"></textarea></label>
+          <div class="foot">
+            <button class="btn primary" type="submit">${ic('plus')} افزودن مبحث</button>
+            <span class="spacer"></span>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>${ic('clock')} مرورهای امروز (${dueItems.length})</h2>
+        </div>
+        ${dueItems.length ? dueItems.map(renderItem).join('') : `<div class="empty">${ic('check')} هیچ مروری برای امروز نیست</div>`}
+      </div>
+
+      ${overdueItems.length ? `
+      <div class="card danger-zone">
+        <div class="card-head">
+          <h2>${ic('alert')} عقب‌افتاده (${overdueItems.length})</h2>
+        </div>
+        ${overdueItems.map(renderItem).join('')}
+      </div>
+      ` : ''}
+
+      <div class="card">
+        <div class="card-head">
+          <h2>${ic('list')} مباحث من (${allItems.length})</h2>
+        </div>
+        ${allItems.length ? `<div class="review-list">${allItems.map((i) => renderItem(i, true)).join('')}</div>` : `<div class="empty">${ic('inbox')}موضوعی اضافه نشده</div>`}
+      </div>
+    `;
+
+    // Bind events
+    $('#addReviewForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const body = {
+        subject_id: +f.get('subject_id'),
+        topic: f.get('topic').trim(),
+        description: f.get('description').trim(),
+      };
+      if (!body.topic) return toast('مبحث الزامی است', true);
+      await api('POST', '/api/review-items', body);
+      toast('مبحث اضافه شد');
+      render();
+    });
+
+    $$('[data-act]', main).forEach((el) => el.addEventListener('click', async () => {
+      const id = +el.closest('.review-item').dataset.id;
+      if (el.dataset.act === 'delete') {
+        if (!confirm('این مبحث حذف شود؟')) return;
+        await api('DELETE', `/api/review-items/${id}`);
+        toast('حذف شد');
+        render();
+      } else if (el.dataset.act === 'edit') {
+        await openEditReview(id);
+      } else if (el.dataset.act === 'start') {
+        await openReviewSession(id);
+      }
+    }));
+  }
+
+  async function openEditReview(id) {
+    const item = await api('GET', `/api/review-items/${id}`);
+    if (!item) return;
+
+    main.innerHTML = `
+      <div class="card">
+        <div class="card-head"><h2>${ic('pencil')} ویرایش مبحث</h2></div>
+        <form id="editReviewForm" class="eform">
+          <div class="row2">
+            <label class="field"><span>درس *</span><select name="subject_id" class="input" required>${subjectOptions(item.subject_id)}</select></label>
+          </div>
+          <label class="field"><span>مبحث *</span><input class="input" type="text" name="topic" value="${esc(item.topic)}" required></label>
+          <label class="field"><span>توضیحات</span><textarea class="input" name="description" rows="4">${esc(item.description)}</textarea></label>
+          <div class="foot">
+            <button class="btn primary" type="submit">${ic('save')} ذخیره</button>
+            <button class="btn" type="button" id="cancelEdit">${ic('x', 'sm')} انصراف</button>
+            <span class="spacer"></span>
+          </div>
+        </form>
+      </div>
+    `;
+    $('#cancelEdit').addEventListener('click', () => render());
+    $('#editReviewForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      await api('PUT', `/api/review-items/${id}`, {
+        subject_id: +f.get('subject_id'),
+        topic: f.get('topic').trim(),
+        description: f.get('description').trim(),
+        fsrs_card: JSON.stringify(item.fsrs_card),
+        due_at: item.due_at,
+      });
+      toast('ذخیره شد');
+      render();
+    });
+  }
+
+  async function openReviewSession(id) {
+    const item = await api('GET', `/api/review-items/${id}`);
+    if (!item) return;
+
+    const preview = await api('GET', `/api/review-items/${id}/preview`);
+
+    const formatPreview = (p) => {
+      const due = new Date(p.due);
+      const diff = Math.round((due - new Date()) / (1000 * 60 * 60 * 24));
+      if (diff <= 0) return 'امروز';
+      if (diff === 1) return 'فردا';
+      return `${diff} روز دیگر`;
+    };
+
+    let showingAnswer = false;
+
+    const renderSession = () => {
+      const showDesc = showingAnswer ? `
+        <div class="review-desc">
+          <h3>توضیحات:</h3>
+          <pre>${esc(item.description || '(بدون توضیحات)')}</pre>
+        </div>
+        <div class="review-ratings">
+          <button class="btn danger btn-rating" data-rating="1">${ic('x', 'sm')} دوباره</button>
+          <button class="btn btn-rating" data-rating="2">${ic('minus', 'sm')} سخت</button>
+          <button class="btn btn-rating" data-rating="3">${ic('check', 'sm')} خوب</button>
+          <button class="btn primary btn-rating" data-rating="4">${ic('star', 'sm')} خیلی راحت</button>
+        </div>
+        <div class="preview-info">
+          پیش‌نموی موعد بعدی:
+          <div class="preview-grid">
+            <span class="preview-item danger">${formatPreview(preview.again)} ← دوباره</span>
+            <span class="preview-item">${formatPreview(preview.hard)} ← سخت</span>
+            <span class="preview-item good">${formatPreview(preview.good)} ← خوب</span>
+            <span class="preview-item primary">${formatPreview(preview.easy)} ← خیلی راحت</span>
+          </div>
+        </div>
+      ` : '';
+
+      main.innerHTML = `
+        <div class="card review-session">
+          <div class="card-head">
+            <h2>${ic('activity')} مرور: ${esc(item.topic)}</h2>
+            <span class="sub">${esc(item.subject)}</span>
+          </div>
+          <div class="review-recall">
+            <span class="ico">${ic('brain', 'sm')}</span>
+            <p><b>اول سعی کن از حافظه به یاد بیاوری</b></p>
+            <p class="sub">مبحث: ${esc(item.topic)}</p>
+          </div>
+          ${showDesc}
+          <div class="review-actions">
+            ${!showingAnswer ? `<button class="btn primary" id="showDesc">${ic('eye', 'sm')} نمایش توضیحات</button>` : ''}
+            <button class="btn" id="cancelReview">${ic('x', 'sm')} انصراف</button>
+          </div>
+        </div>
+      `;
+
+      if (!showingAnswer) {
+        $('#showDesc').addEventListener('click', () => { showingAnswer = true; renderSession(); });
+      } else {
+        $$('[data-rating]', main).forEach((btn) => btn.addEventListener('click', async () => {
+          const rating = +btn.dataset.rating;
+          await submitReview(id, rating);
+        }));
+      }
+      $('#cancelReview').addEventListener('click', () => render());
+    };
+
+    const submitReview = async (reviewItemId, rating) => {
+      const res = await api('POST', `/api/review-items/${reviewItemId}/review`, { rating });
+      if (res.ok) {
+        const nextDue = new Date(res.due_at);
+        const diff = Math.round((nextDue - new Date()) / (1000 * 60 * 60 * 24));
+        let msg = 'مرور ثبت شد ✓';
+        if (diff <= 0) msg += ' — مرور بعدی: امروز';
+        else if (diff === 1) msg += ' — مرور بعدی: فردا';
+        else msg += ` — مرور بعدی: ${diff} روز دیگر`;
+        toast(msg);
+        render();
+      }
+    };
+
+    renderSession();
   }
 
   // ---------- حضور (برای خاموش شدن خودکار سرور در حالت دسکتاپ) ----------

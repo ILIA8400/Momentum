@@ -68,11 +68,34 @@ function open(file) {
     CREATE TABLE IF NOT EXISTS day_notes (
       date TEXT PRIMARY KEY,
       text TEXT NOT NULL DEFAULT '',
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      updated_at TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS review_items (
+      id INTEGER PRIMARY KEY,
+      subject_id INTEGER NOT NULL REFERENCES subjects(id),
+      topic TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      fsrs_card TEXT NOT NULL,
+      due_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_review_items_due ON review_items(due_at);
+    CREATE TABLE IF NOT EXISTS review_logs (
+      id INTEGER PRIMARY KEY,
+      review_item_id INTEGER NOT NULL REFERENCES review_items(id) ON DELETE CASCADE,
+      reviewed_at TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      previous_due_at TEXT,
+      next_due_at TEXT,
+      scheduled_days REAL,
+      state INTEGER,
+      stability REAL,
+      difficulty REAL
     );
   `);
   // مهاجرت ستون‌های جدید entries
@@ -119,12 +142,22 @@ function wrap(db, file) {
                             FROM entries WHERE date >= ? AND date <= ? ${doneOnly ? 'AND done = 1' : ''} GROUP BY date ORDER BY date`),
     allDays: (doneOnly) => db.prepare(`SELECT date, SUM(minutes) AS minutes, SUM(tests) AS tests FROM entries ${doneOnly ? 'WHERE done = 1' : ''} GROUP BY date ORDER BY date`),
     noteGet: db.prepare('SELECT * FROM day_notes WHERE date = ?'),
-    noteSet: db.prepare(`INSERT INTO day_notes (date, text, updated_at) VALUES (?, ?, datetime('now'))
+    noteSet: db.prepare(`INSERT INTO day_notes (date, text, updated_at) VALUES (?, ?, ?)
                          ON CONFLICT(date) DO UPDATE SET text = excluded.text, updated_at = excluded.updated_at`),
     noteDelete: db.prepare('DELETE FROM day_notes WHERE date = ?'),
     notesRange: db.prepare('SELECT * FROM day_notes WHERE date >= ? AND date <= ? ORDER BY date'),
     settingsAll: db.prepare('SELECT * FROM settings'),
     settingSet: db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'),
+
+    reviewItemsList: db.prepare('SELECT ri.*, s.name AS subject, s.color FROM review_items ri JOIN subjects s ON s.id = ri.subject_id ORDER BY ri.due_at'),
+    reviewItemsDue: db.prepare('SELECT ri.*, s.name AS subject, s.color FROM review_items ri JOIN subjects s ON s.id = ri.subject_id WHERE ri.due_at <= ? ORDER BY ri.due_at'),
+    reviewItemsOverdue: db.prepare('SELECT ri.*, s.name AS subject, s.color FROM review_items ri JOIN subjects s ON s.id = ri.subject_id WHERE ri.due_at < ? ORDER BY ri.due_at'),
+    reviewItemGet: db.prepare('SELECT ri.*, s.name AS subject, s.color FROM review_items ri JOIN subjects s ON s.id = ri.subject_id WHERE ri.id = ?'),
+    reviewItemInsert: db.prepare('INSERT INTO review_items (subject_id, topic, description, fsrs_card, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+    reviewItemUpdate: db.prepare('UPDATE review_items SET subject_id = ?, topic = ?, description = ?, fsrs_card = ?, due_at = ?, updated_at = ? WHERE id = ?'),
+    reviewItemDelete: db.prepare('DELETE FROM review_items WHERE id = ?'),
+    reviewLogsInsert: db.prepare('INSERT INTO review_logs (review_item_id, reviewed_at, rating, previous_due_at, next_due_at, scheduled_days, state, stability, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'),
+    reviewLogsList: db.prepare('SELECT * FROM review_logs WHERE review_item_id = ? ORDER BY reviewed_at DESC'),
   };
 
   const api = {
@@ -171,7 +204,8 @@ function wrap(db, file) {
     getNote: (date) => q.noteGet.get(date)?.text || '',
     setNote(date, text) {
       text = String(text || '');
-      if (!text.trim()) q.noteDelete.run(date); else q.noteSet.run(date, text);
+      const now = new Date().toISOString();
+      if (!text.trim()) q.noteDelete.run(date); else q.noteSet.run(date, text, now);
     },
     listNotes: (from, to) => q.notesRange.all(from, to),
 
@@ -222,7 +256,7 @@ function wrap(db, file) {
 
     export() {
       return {
-        version: 2,
+        version: 3,
         exported_at: new Date().toISOString(),
         exported_jalali: J.todayJalali(),
         subjects: db.prepare('SELECT * FROM subjects').all(),
@@ -230,15 +264,17 @@ function wrap(db, file) {
         goals: db.prepare('SELECT * FROM goals').all(),
         day_notes: db.prepare('SELECT * FROM day_notes ORDER BY date').all(),
         settings: db.prepare('SELECT * FROM settings').all(),
+        review_items: db.prepare('SELECT * FROM review_items ORDER BY id').all(),
+        review_logs: db.prepare('SELECT * FROM review_logs ORDER BY id').all(),
       };
     },
     import(data) {
-      if (!data || ![1, 2].includes(data.version) || !Array.isArray(data.subjects) || !Array.isArray(data.entries)) {
+      if (!data || ![1, 2, 3].includes(data.version) || !Array.isArray(data.subjects) || !Array.isArray(data.entries)) {
         throw new Error('فایل بکاپ معتبر نیست');
       }
       db.exec('BEGIN');
       try {
-        db.exec('DELETE FROM goals; DELETE FROM entries; DELETE FROM subjects; DELETE FROM day_notes; DELETE FROM settings;');
+        db.exec('DELETE FROM review_logs; DELETE FROM review_items; DELETE FROM goals; DELETE FROM entries; DELETE FROM subjects; DELETE FROM day_notes; DELETE FROM settings;');
         const s = db.prepare('INSERT INTO subjects (id, name, color, sort, archived) VALUES (?, ?, ?, ?, ?)');
         for (const x of data.subjects) s.run(x.id, x.name, x.color, x.sort ?? 0, x.archived ?? 0);
         const e = db.prepare(`INSERT INTO entries (id, created_at, ${ENTRY_FIELDS.join(', ')}) VALUES (?, ?, ${ENTRY_FIELDS.map(() => '?').join(', ')})`);
@@ -252,6 +288,10 @@ function wrap(db, file) {
         for (const x of data.day_notes || []) n.run(x.date, x.text ?? '', x.updated_at ?? new Date().toISOString());
         const st = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
         for (const x of data.settings || []) st.run(x.key, x.value);
+        const ri = db.prepare('INSERT INTO review_items (id, subject_id, topic, description, fsrs_card, due_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+        for (const x of data.review_items || []) ri.run(x.id, x.subject_id, x.topic, x.description, x.fsrs_card, x.due_at, x.created_at, x.updated_at);
+        const rl = db.prepare('INSERT INTO review_logs (id, review_item_id, reviewed_at, rating, previous_due_at, next_due_at, scheduled_days, state, stability, difficulty) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        for (const x of data.review_logs || []) rl.run(x.id, x.review_item_id, x.reviewed_at, x.rating, x.previous_due_at, x.next_due_at, x.scheduled_days, x.state, x.stability, x.difficulty);
         db.exec('COMMIT');
       } catch (err) {
         db.exec('ROLLBACK');
@@ -291,6 +331,43 @@ function wrap(db, file) {
       }
       return '﻿' + lines.join('\r\n');
     },
+
+    // Review Items
+    listReviewItems() {
+      return q.reviewItemsList.all().map(rowReviewItem);
+    },
+    listDueReviewItems(now) {
+      return q.reviewItemsDue.all(now).map(rowReviewItem);
+    },
+    listOverdueReviewItems() {
+      const today = new Date().toISOString().split('T')[0];
+      return q.reviewItemsOverdue.all(today).map(rowReviewItem);
+    },
+    getReviewItem(id) {
+      const r = q.reviewItemGet.get(id);
+      return r ? rowReviewItem(r) : null;
+    },
+    addReviewItem({ subject_id, topic, description, fsrs_card, due_at }) {
+      const now = new Date().toISOString();
+      const r = q.reviewItemInsert.run(subject_id, topic, description, fsrs_card, due_at, now, now);
+      return api.getReviewItem(Number(r.lastInsertRowid));
+    },
+    updateReviewItem(id, { subject_id, topic, description, fsrs_card, due_at }) {
+      const now = new Date().toISOString();
+      q.reviewItemUpdate.run(subject_id, topic, description, fsrs_card, due_at, now, id);
+      return api.getReviewItem(id);
+    },
+    deleteReviewItem(id) {
+      q.reviewItemDelete.run(id);
+    },
+
+    // Review Logs
+    addReviewLog({ review_item_id, reviewed_at, rating, previous_due_at, next_due_at, scheduled_days, state, stability, difficulty }) {
+      q.reviewLogsInsert.run(review_item_id, reviewed_at, rating, previous_due_at, next_due_at, scheduled_days, state, stability, difficulty);
+    },
+    listReviewLogs(review_item_id) {
+      return q.reviewLogsList.all(review_item_id);
+    },
   };
   return api;
 }
@@ -302,6 +379,12 @@ function percentOf(correct, wrong, total) {
 }
 function withPercent(r) { r.percent = percentOf(r.correct, r.wrong, r.scored_tests ?? r.tests); return r; }
 function rowEntry(r) { return { ...r, done: !!r.done, percent: percentOf(r.correct, r.wrong, r.tests) }; }
+function rowReviewItem(r) {
+  return {
+    ...r,
+    fsrs_card: r.fsrs_card ? JSON.parse(r.fsrs_card) : null,
+  };
+}
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 function normalizeEntry(e, lenient = false) {

@@ -64,13 +64,13 @@ test('day notes and settings', () => {
   assert.throws(() => db.setSetting('nope', 'x'));
 });
 
-test('export v2 round trip includes notes/settings; imports v1 too', () => {
+test('export v3 round trip includes notes/settings; imports v1/v2 too', () => {
   const db = open(':memory:');
   db.addEntry({ date: '1405-06-27', subject_id: 1, minutes: 45, tests: 10, correct: 7, wrong: 1, start_time: '10:00', end_time: '10:45', study_min: 30, test_min: 15 });
   db.setNote('1405-06-27', 'n');
   db.setSetting('exam_date', '1406-03-01');
   const dump = db.export();
-  assert.strictEqual(dump.version, 2);
+  assert.strictEqual(dump.version, 3);
   const db2 = open(':memory:');
   db2.import(dump);
   assert.deepStrictEqual(db2.export().entries, dump.entries);

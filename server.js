@@ -153,10 +153,82 @@ route('POST', '/api/restore', async (req) => {
   db.import(data);
   return { ok: true };
 });
+const fsrsService = require('./src/services/fsrsService');
+
 route('GET', '/api/backups', () => ({ dir: BACKUP_DIR, dbFile: DATA_FILE, files: backup.list(BACKUP_DIR) }));
 route('POST', '/api/backups', () => ({ file: backup.backupNow(db, BACKUP_DIR, 'manual') }));
 route('GET', '/api/today', () => ({ today: J.todayJalali() }));
 route('GET', '/api/health', () => ({ app: APP, version: VERSION, port: server.address()?.port, pid: process.pid }));
+
+// Review Items API
+route('GET', '/api/review-items', () => db.listReviewItems());
+route('GET', '/api/review-items/due', (req, p, url) => db.listDueReviewItems(url.searchParams.get('now') || new Date().toISOString()));
+route('GET', '/api/review-items/overdue', () => db.listOverdueReviewItems());
+route('GET', '/api/review-items/:id', (req, p) => db.getReviewItem(+p.id));
+route('POST', '/api/review-items', async (req) => {
+  const b = await readBody(req);
+  const card = fsrsService.scheduler.createEmptyCard();
+  const fsrs_card = fsrsService.stringifyCard(card);
+  const due_at = fsrsService.formatDueDate(card.due);
+  const item = db.addReviewItem({ subject_id: b.subject_id, topic: b.topic, description: b.description, fsrs_card, due_at });
+  return item;
+});
+route('PUT', '/api/review-items/:id', async (req, p) => {
+  const b = await readBody(req);
+  const item = db.updateReviewItem(+p.id, b);
+  return item;
+});
+route('DELETE', '/api/review-items/:id', (req, p) => { db.deleteReviewItem(+p.id); return { ok: true }; });
+
+// Review Session API
+route('GET', '/api/review-items/:id/preview', (req, p) => {
+  const item = db.getReviewItem(+p.id);
+  if (!item) throw new Error('مبحث یافت نشد');
+  const card = item.fsrs_card;
+  const now = new Date();
+  const preview = fsrsService.scheduler.preview(card, now);
+  return {
+    again: { due: preview.again.card.due, interval: preview.again.interval },
+    hard: { due: preview.hard.card.due, interval: preview.hard.interval },
+    good: { due: preview.good.card.due, interval: preview.good.interval },
+    easy: { due: preview.easy.card.due, interval: preview.easy.interval },
+  };
+});
+route('POST', '/api/review-items/:id/review', async (req, p) => {
+  const b = await readBody(req);
+  const { rating } = b;
+  const item = db.getReviewItem(+p.id);
+  if (!item) throw new Error('مبحث یافت نشد');
+
+  const card = item.fsrs_card;
+  const now = new Date();
+  const previous_due_at = item.due_at;
+
+  const result = fsrsService.scheduler.review(card, now, rating);
+  const newCard = result.card;
+  const next_due_at = fsrsService.formatDueDate(newCard.due);
+  const scheduled_days = result.log.scheduled_days;
+  const log = result.log;
+
+  const fsrs_card = fsrsService.stringifyCard(newCard);
+  db.updateReviewItem(+p.id, { ...item, fsrs_card, due_at: next_due_at });
+  db.addReviewLog({
+    review_item_id: +p.id,
+    reviewed_at: now.toISOString(),
+    rating,
+    previous_due_at,
+    next_due_at,
+    scheduled_days,
+    state: newCard.state,
+    stability: newCard.stability,
+    difficulty: newCard.difficulty,
+  });
+
+  return { ok: true, card: newCard, due_at: next_due_at, interval: scheduled_days };
+});
+
+// Review Logs
+route('GET', '/api/review-items/:id/logs', (req, p) => db.listReviewLogs(+p.id));
 // بررسی نسخهٔ جدید روی گیت‌هاب (فقط وقتی کاربر بخواهد؛ آنلاین)
 route('GET', '/api/update-check', async () => {
   try {

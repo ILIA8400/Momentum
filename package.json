@@ -9,5 +9,8 @@
     "stop": "node server.js --stop",
     "test": "node --test test/*.test.js"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "ts-fsrs": "^5.4.2"
+  }
 }

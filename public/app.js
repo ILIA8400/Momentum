@@ -585,6 +585,7 @@
       </div>
       <label class="field"><span>شرح</span><input class="input" type="text" name="note" placeholder="مثلاً: فیلم جلسه ۱۲ — فصل ۳ تا صفحه ۴۰" value="${esc(v('note'))}"></label>
       <div class="foot">
+        <label class="check"><input type="checkbox" name="done" ${ed?.done ? 'checked' : ''}> انجام شد</label>
         ${ed ? '<button class="btn" type="button" id="cancelEdit">انصراف</button>' : ''}
         <button class="btn primary" type="submit">${ic(ed ? 'save' : 'plus')} ${ed ? 'ذخیره تغییرات' : 'افزودن'}</button>
         <span class="spacer"></span>

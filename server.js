@@ -239,7 +239,7 @@ route('GET', '/api/update-check', async () => {
   } catch (e) { return { current: VERSION, latest: null, error: 'دسترسی به گیت‌هاب ممکن نشد (' + e.message + ')', repo: REPO_URL }; }
 });
 
-// آپدیت کاملاً خودکار: دانلود ZIP، استخراج (حفظ data/ و backups/)، ریستارت
+// آپدیت خودکار: فایل update.bat را اجرا می‌کند (بهترین روش در ویندوز)
 route('POST', '/api/update', async () => {
   try {
     // ۱. چک آپدیت
@@ -248,78 +248,31 @@ route('POST', '/api/update', async () => {
     const latest = (await check.json()).version;
     if (cmpVer(latest, VERSION) <= 0) return { ok: false, message: 'نسخه فعلی بروز است', current: VERSION };
 
-    // ۲. بکاپ قبل از آپدیت
+    // ۲. اجرای update.bat در پس‌زمینه (حتی اگر سرور خاموش شود)
     const { spawn } = require('node:child_process');
-    await new Promise((resolve) => {
-      const b = spawn('node', ['server.js', '--stop'], { cwd: ROOT });
-      b.on('exit', resolve);
-    });
-
-    // ۳. دانلود ZIP
-    const zipUrl = 'https://github.com/ILIA8400/Momentum/archive/refs/heads/main.zip';
-    const zipRes = await fetch(zipUrl, { signal: AbortSignal.timeout(60000) });
-    if (!zipRes.ok) throw new Error('دانلود ZIP ناموفق: ' + zipRes.status);
-    const zipBuf = Buffer.from(await zipRes.arrayBuffer());
-
-    // ۴. استخراج با zip (استفاده از node:stream + unzip)
-    const { createUnzip } = require('node:zlib');
-    const { PassThrough } = require('node:stream');
-    const { extract } = require('node:stream/promises');
-
-    // روش ساده: استفاده از unzipper via child_process (cross-platform)
-    const fs = require('node:fs');
-    const path = require('node:path');
-    const tmpDir = path.join(ROOT, 'tmp-update-' + Date.now());
-    fs.mkdirSync(tmpDir);
-    const zipPath = path.join(tmpDir, 'update.zip');
-    fs.writeFileSync(zipPath, zipBuf);
-
-    // استخراج با PowerShell (ویندوز) یا unzip (لینوکس/مک)
     const isWin = process.platform === 'win32';
-    await new Promise((resolve, reject) => {
-      const cmd = isWin
-        ? `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tmpDir}' -Force"`
-        : `unzip -q -o '${zipPath}' -d '${tmpDir}'`;
-      const c = spawn(cmd, { shell: true, cwd: ROOT });
-      c.on('exit', (code) => code === 0 ? resolve() : reject(new Error('استخراج ناموفق')));
-      c.on('error', reject);
-    });
-
-    // پوشه استخراج شده: tmp-update-xxx/Momentum-main
-    const extractedDir = path.join(tmpDir, 'Momentum-main');
-    if (!fs.existsSync(extractedDir)) throw new Error('ساختار ZIP غیرمنتظره');
-
-    // کپی فایل‌ها (به جز data/ و backups/)
-    function copyRecursive(src, dest) {
-      if (!fs.existsSync(src)) return;
-      for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-        const s = path.join(src, entry.name);
-        const d = path.join(dest, entry.name);
-        if (entry.isDirectory()) {
-          if (entry.name === 'data' || entry.name === 'backups' || entry.name === 'node_modules' || entry.name.startsWith('tmp-update')) continue;
-          fs.mkdirSync(d, { recursive: true });
-          copyRecursive(s, d);
-        } else {
-          fs.copyFileSync(s, d);
-        }
-      }
+    
+    if (isWin) {
+      // در ویندوز: update.bat را در cmd جداگانه اجرا کن
+      spawn('cmd', ['/c', 'update.bat'], {
+        cwd: ROOT,
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true
+      }).unref();
+    } else {
+      // لینوکس/مک: اسکریپت شل
+      spawn('sh', ['-c', './update.bat'], {
+        cwd: ROOT,
+        detached: true,
+        stdio: 'ignore'
+      }).unref();
     }
-    copyRecursive(extractedDir, ROOT);
 
-    // پاکسازی
-    fs.rmSync(tmpDir, { recursive: true, force: true });
+    // ۳. خروج سریع از سرور (update.bat خودش سرور رو می‌بند و ریستارت می‌کنه)
+    setTimeout(() => process.exit(0), 500);
 
-    // ۵. نصب وابستگی‌های جدید (اختیاری)
-    // npm install در پس‌زمینه - برای سرعت فعلاً رد می‌کنیم، کاربر می‌تونه بعدا بزند
-
-    // ۶. ریستارت
-    setTimeout(() => {
-      const { spawn } = require('node:child_process');
-      spawn(process.platform === 'win32' ? 'cmd' : 'sh', ['/c', 'start', '', 'start-hidden.vbs'], { cwd: ROOT, detached: true, stdio: 'ignore' });
-      process.exit(0);
-    }, 1000);
-
-    return { ok: true, message: 'آپدیت انجام شد، در حال راه‌اندازی مجدد...', newVersion: latest };
+    return { ok: true, message: 'آپدیت آغاز شد، در حال راه‌اندازی مجدد...', newVersion: latest };
   } catch (e) {
     return { ok: false, message: 'خطا در آپدیت: ' + e.message };
   }

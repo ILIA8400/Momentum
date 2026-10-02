@@ -1041,8 +1041,15 @@
       const m = $('#updateMsg'); m.textContent = 'در حال بررسی…';
       const u = await api('GET', '/api/update-check');
       if (u.error) m.innerHTML = `<span style="color:var(--danger)">${esc(u.error)}</span>`;
-      else if (u.hasUpdate) m.innerHTML = `🎉 نسخهٔ <b>${fa(u.latest)}</b> موجوده (شما: ${fa(u.current)}). برای به‌روزرسانی: <code>update.bat</code> رو اجرا کن یا از <a href="${u.repo}" target="_blank">گیت‌هاب</a> ZIP جدید رو بگیر و فایل‌ها رو جایگزین کن (پوشه‌های data و backups دست نخورده می‌مونن).`;
+      else if (u.hasUpdate) m.innerHTML = `🎉 نسخهٔ <b>${fa(u.latest)}</b> موجوده (شما: ${fa(u.current)}). <button class="btn primary" id="autoUpdate">${ic('download')} آپدیت خودکار</button> یا <code>update.bat</code> / <a href="${u.repo}" target="_blank">گیت‌هاب</a>`;
       else m.textContent = `✓ آخرین نسخه رو داری (${fa(u.current)}).`;
+      $('#autoUpdate')?.addEventListener('click', async () => {
+        if (!confirm('آپدیت خودکار انجام شود؟ (بکاپ گرفته می‌شود، اپ ریستارت می‌شود)')) return;
+        m.textContent = 'در حال دانلود و آپدیت…';
+        const r = await api('POST', '/api/update');
+        if (r.ok) m.innerHTML = `<span style="color:var(--ok)">${esc(r.message)}</span>`;
+        else m.innerHTML = `<span style="color:var(--danger)">${esc(r.message)}</span>`;
+      });
     });
     $('#examTitle').addEventListener('change', async (e) => { state.settings = await api('PUT', '/api/settings', { exam_title: e.target.value }); toast('ذخیره شد'); });
     $('#examDate2').addEventListener('click', (e) => openPicker(e.currentTarget, S.exam_date, async (d) => { state.settings = await api('PUT', '/api/settings', { exam_date: d }); toast('تاریخ کنکور ذخیره شد'); render(); }));

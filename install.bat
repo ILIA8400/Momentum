@@ -26,6 +26,8 @@ if /i "%AUTO%"=="y" (
 echo.
 echo  Done! Run from the desktop shortcut or start.bat. To stop: stop.bat
 echo.
+:: Unblock downloaded files (Mark of the Web)
+powershell -NoProfile -Command "Get-ChildItem -Path '%~dp0' -Recurse | Unblock-File" 2>nul
 set /p RUN=  Run it now? (y/n):
-if /i "%RUN%"=="y" start "" "%~dp0start-hidden.vbs"
+if /i "%RUN%"=="y" start "" "%~dp0start.bat"
 pause
